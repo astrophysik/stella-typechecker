@@ -1,1 +1,1 @@
-# stella-typechecker
+# typechecker
