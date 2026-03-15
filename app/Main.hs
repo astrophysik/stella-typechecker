@@ -5,8 +5,8 @@ import Parsing.LexSyntax (tokens)
 import Parsing.ParSyntax (pProgram)
 import TypeCheck.TypeCheck (checkProgram)
 
-newtype Options = Options
-  {inputFile :: Maybe FilePath}
+data Options = Options
+  {inputFile :: Maybe FilePath, parseOnly :: Bool}
   deriving (Show)
 
 optionsParser :: Parser Options
@@ -20,6 +20,11 @@ optionsParser =
               <> help "Read input file (defalut std::in)"
           )
       )
+    <*> switch
+      ( long "parse"
+          <> short 'p'
+          <> help "Only parse and print AST (no typecheck)"
+      )
 
 main :: IO ()
 main = do
@@ -27,6 +32,9 @@ main = do
   program <- maybe getContents readFile (inputFile opts)
   case pProgram $ tokens program of
     Left msg -> putStrLn msg
-    Right ast -> case checkProgram ast of
-      Left msg -> putStrLn msg
-      Right () -> putStrLn "Input program is well-typed!\n"
+    Right ast ->
+      if parseOnly opts
+        then print ast
+        else case checkProgram ast of
+          Left msg -> putStrLn msg
+          Right () -> putStrLn "Input program is well-typed!\n"
