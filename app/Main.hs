@@ -29,11 +29,4 @@ main = do
     Left msg -> putStrLn msg
     Right ast -> case checkProgram ast of
       Left msg -> putStrLn msg
-      Right () -> putStrLn "OK"
-
--- main :: IO ()
--- main = do
---   input <- getContents
---   case pProgram $ tokens input of
---     Left msg -> putStrLn msg
---     Right ast -> print ast
+      Right () -> putStrLn "Input program is well-typed!\n"
