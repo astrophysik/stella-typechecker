@@ -66,6 +66,8 @@ test-suite typechecker-test
   main-is: Spec.hs
   other-modules:
       Core.BoolSpec
+      Core.IntSpec
+      Core.LambdaSpec
       TestUtil
       Paths_typechecker
   autogen-modules:

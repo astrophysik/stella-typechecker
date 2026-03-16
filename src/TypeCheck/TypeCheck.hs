@@ -1,4 +1,4 @@
-module TypeCheck.TypeCheck (typeCheck, unexpectedTypeForExpression, undefinedVariable, notAFunction) where
+module TypeCheck.TypeCheck (typeCheck, unexpectedTypeForExpression, undefinedVariable, unexpectedLambda, notAFunction, unexpectedTypeForParam) where
 
 import Data.Foldable (traverse_)
 import qualified Data.HashMap.Strict as HM
@@ -17,6 +17,12 @@ undefinedVariable = "ERROR_UNDEFINED_VARIABLE"
 
 notAFunction :: String
 notAFunction = "ERROR_NOT_A_FUNCTION"
+
+unexpectedTypeForParam :: String
+unexpectedTypeForParam = "ERROR_UNEXPECTED_TYPE_FOR_PARAMETER"
+
+unexpectedLambda :: String
+unexpectedLambda = "ERROR_UNEXPECTED_LAMBDA"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -62,8 +68,9 @@ inferTypeExpression context (AbsSyntax.Application function [argument]) = do
   functionType <- inferTypeExpression context function
   case functionType of
     (AbsSyntax.TypeFun [varType] bodyType) -> do
-      checkTypeExpression context argument varType
-      pure bodyType
+      case checkTypeExpression context argument varType of
+        Left _ -> Left unexpectedTypeForParam
+        Right _ -> pure bodyType
     _ -> Left notAFunction
 inferTypeExpression _ (AbsSyntax.Application _ []) = Left "apply function with zero arguments"
 inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "apply function with several arguments"
@@ -119,7 +126,8 @@ checkTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl varIden
           pure ()
       )
     else
-      Left "varType != paramType"
+      Left unexpectedTypeForParam
+checkTypeExpression _ (AbsSyntax.Abstraction _ _) _ = Left unexpectedLambda
 -- T-App
 checkTypeExpression context (AbsSyntax.Application function [argument]) expectedType = do
   functionType <- inferTypeExpression context function
