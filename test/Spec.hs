@@ -1,2 +1,6 @@
+import Test.Hspec
+import qualified Core.BoolSpec
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = hspec $ do
+  Core.BoolSpec.spec

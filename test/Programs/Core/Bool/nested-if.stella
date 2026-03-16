@@ -1,0 +1,6 @@
+language core;
+
+
+fn main(n : Nat) -> Bool {
+  return if if true then false else false then if true then false else false else if true then false else false
+}

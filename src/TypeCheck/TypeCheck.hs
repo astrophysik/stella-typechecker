@@ -1,4 +1,4 @@
-module TypeCheck.TypeCheck (checkProgram) where
+module TypeCheck.TypeCheck (typeCheck, unexpectedTypeForExpression, undefinedVariable, notAFunction) where
 
 import Data.Foldable (traverse_)
 import qualified Data.HashMap.Strict as HM
@@ -136,5 +136,5 @@ checkDeclaration (AbsSyntax.DeclFun annotations ident params returnType throwTyp
   Right _ -> Right ()
 checkDeclaration _ = Left "unsupported"
 
-checkProgram :: AbsSyntax.Program -> Either String ()
-checkProgram (AbsSyntax.AProgram languageDecl extentions declarations) = traverse_ checkDeclaration declarations
+typeCheck :: AbsSyntax.Program -> Either String ()
+typeCheck (AbsSyntax.AProgram languageDecl extentions declarations) = traverse_ checkDeclaration declarations

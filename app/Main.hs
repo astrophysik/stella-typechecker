@@ -3,7 +3,7 @@ module Main (main) where
 import Options.Applicative
 import Parsing.LexSyntax (tokens)
 import Parsing.ParSyntax (pProgram)
-import TypeCheck.TypeCheck (checkProgram)
+import TypeCheck.TypeCheck (typeCheck)
 
 data Options = Options
   {inputFile :: Maybe FilePath, parseOnly :: Bool}
@@ -35,6 +35,6 @@ main = do
     Right ast ->
       if parseOnly opts
         then print ast
-        else case checkProgram ast of
+        else case typeCheck ast of
           Left msg -> putStrLn msg
           Right () -> putStrLn "Input program is well-typed!\n"

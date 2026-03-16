@@ -65,6 +65,8 @@ test-suite typechecker-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Core.BoolSpec
+      TestUtil
       Paths_typechecker
   autogen-modules:
       Paths_typechecker
@@ -73,5 +75,6 @@ test-suite typechecker-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , hspec
     , typechecker
   default-language: Haskell2010
