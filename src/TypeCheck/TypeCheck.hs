@@ -77,6 +77,9 @@ inferTypeExpression context (AbsSyntax.Application function [argument]) = do
     _ -> Left notAFunction
 inferTypeExpression _ (AbsSyntax.Application _ []) = Left "apply function with zero arguments"
 inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "apply function with several arguments"
+-- Unit expr
+-- T-unit
+inferTypeExpression _ AbsSyntax.ConstUnit = Right AbsSyntax.TypeUnit
 inferTypeExpression _ _ = Left "unsupported"
 
 -- Type check
@@ -139,6 +142,9 @@ checkTypeExpression context (AbsSyntax.Application function [argument]) expected
       checkTypeExpression context argument paramType
       if resultType == expectedType then pure () else Left unexpectedTypeForExpression
     _ -> Left notAFunction
+-- Unit expr
+-- T-unit
+checkTypeExpression _ AbsSyntax.ConstUnit expectedType = if expectedType == AbsSyntax.TypeUnit then Right () else Left unexpectedTypeForExpression
 checkTypeExpression _ _ _ = Left "unsupported"
 
 checkDeclarations :: Context -> [AbsSyntax.Decl] -> Either String ()

@@ -69,6 +69,7 @@ test-suite typechecker-test
       Core.IntSpec
       Core.LambdaSpec
       Decl.DeclSpec
+      SimpleTypes.UnitSpec
       TestUtil
       Paths_typechecker
   autogen-modules:
