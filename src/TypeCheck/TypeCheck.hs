@@ -1,5 +1,17 @@
-module TypeCheck.TypeCheck (typeCheck, unexpectedTypeForExpression, undefinedVariable, unexpectedLambda, notAFunction, unexpectedTypeForParam, missingMain) where
+module TypeCheck.TypeCheck
+  ( typeCheck,
+    unexpectedTypeForExpression,
+    undefinedVariable,
+    unexpectedLambda,
+    notAFunction,
+    unexpectedTypeForParam,
+    missingMain,
+    notATuple,
+    unexpectedTuple,
+  )
+where
 
+import Control.Arrow (ArrowChoice (right))
 import Data.Foldable (traverse_)
 import qualified Data.HashMap.Strict as HM
 import qualified Parsing.AbsSyntax as AbsSyntax
@@ -18,6 +30,9 @@ undefinedVariable = "ERROR_UNDEFINED_VARIABLE"
 notAFunction :: String
 notAFunction = "ERROR_NOT_A_FUNCTION"
 
+notATuple :: String
+notATuple = "ERROR_NOT_A_TUPLE"
+
 unexpectedTypeForParam :: String
 unexpectedTypeForParam = "ERROR_UNEXPECTED_TYPE_FOR_PARAMETER"
 
@@ -26,6 +41,9 @@ unexpectedLambda = "ERROR_UNEXPECTED_LAMBDA"
 
 missingMain :: String
 missingMain = "ERROR_MISSING_MAIN"
+
+unexpectedTuple :: String
+unexpectedTuple = "ERROR_UNEXPECTED_TUPLE"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -80,6 +98,24 @@ inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "apply functi
 -- Unit expr
 -- T-unit
 inferTypeExpression _ AbsSyntax.ConstUnit = Right AbsSyntax.TypeUnit
+-- Pair expr
+-- T-Pair
+inferTypeExpression context (AbsSyntax.Tuple [left, right]) = do
+  leftType <- inferTypeExpression context left
+  rightType <- inferTypeExpression context right
+  pure $ AbsSyntax.TypeTuple [leftType, rightType]
+-- T-Proj1
+inferTypeExpression context (AbsSyntax.DotTuple tuple 1) = do
+  tupleType <- inferTypeExpression context tuple
+  case tupleType of
+    (AbsSyntax.TypeTuple [left, _]) -> pure left
+    _ -> Left notATuple
+-- T-Proj2
+inferTypeExpression context (AbsSyntax.DotTuple tuple 2) = do
+  tupleType <- inferTypeExpression context tuple
+  case tupleType of
+    (AbsSyntax.TypeTuple [_, right]) -> pure right
+    _ -> Left notATuple
 inferTypeExpression _ _ = Left "unsupported"
 
 -- Type check
@@ -145,14 +181,35 @@ checkTypeExpression context (AbsSyntax.Application function [argument]) expected
 -- Unit expr
 -- T-unit
 checkTypeExpression _ AbsSyntax.ConstUnit expectedType = if expectedType == AbsSyntax.TypeUnit then Right () else Left unexpectedTypeForExpression
+-- Pair expr
+-- T-Pair
+checkTypeExpression context (AbsSyntax.Tuple [left, right]) expectedType = do
+  case expectedType of
+    (AbsSyntax.TypeTuple [leftType, rightType]) -> do
+      checkTypeExpression context left leftType
+      checkTypeExpression context right rightType
+      pure ()
+    _ -> Left unexpectedTuple
+-- T-Proj1
+checkTypeExpression context (AbsSyntax.DotTuple tuple 1) expectedType = do
+  tupleType <- inferTypeExpression context tuple
+  case tupleType of
+    (AbsSyntax.TypeTuple [leftType, _]) -> if expectedType == leftType then Right () else Left unexpectedTypeForExpression
+    _ -> Left notATuple
+-- T-Proj2
+checkTypeExpression context (AbsSyntax.DotTuple tuple 2) expectedType = do
+  tupleType <- inferTypeExpression context tuple
+  case tupleType of
+    (AbsSyntax.TypeTuple [_, rightType]) -> if expectedType == rightType then Right () else Left unexpectedTypeForExpression
+    _ -> Left notATuple
 checkTypeExpression _ _ _ = Left "unsupported"
 
 checkDeclarations :: Context -> [AbsSyntax.Decl] -> Either String ()
 checkDeclarations _ [] = Right ()
-checkDeclarations programContext ((AbsSyntax.DeclFun _ _ params (AbsSyntax.SomeReturnType returnType) _ _ expr) : _) = do
+checkDeclarations programContext ((AbsSyntax.DeclFun _ _ params (AbsSyntax.SomeReturnType returnType) _ _ expr) : xs) = do
   let functionContext = foldl (\context (AbsSyntax.AParamDecl (AbsSyntax.StellaIdent varName) varType) -> HM.insert varName varType context) programContext params
   checkTypeExpression functionContext expr returnType
-  pure ()
+  checkDeclarations programContext xs 
 checkDeclarations _ _ = Left "Unsupported declaration"
 
 collectDeclarations :: [AbsSyntax.Decl] -> Either String Context

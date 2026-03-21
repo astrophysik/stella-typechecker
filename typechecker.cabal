@@ -69,6 +69,7 @@ test-suite typechecker-test
       Core.IntSpec
       Core.LambdaSpec
       Decl.DeclSpec
+      SimpleTypes.PairSpec
       SimpleTypes.UnitSpec
       TestUtil
       Paths_typechecker

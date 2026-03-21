@@ -1,0 +1,7 @@
+language core;
+extend with #pairs, #arithmetic-operators;
+
+
+fn main(n : Nat) -> Nat {
+  return n.1
+}
