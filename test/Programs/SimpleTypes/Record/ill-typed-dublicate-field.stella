@@ -1,0 +1,7 @@
+language core;
+
+extend with #records;
+
+fn main(n : Nat) -> Nat {
+  return { current = n, next = succ(n), next = succ(n) }.next
+}

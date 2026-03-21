@@ -23,11 +23,13 @@ module TypeCheck.TypeCheck
     notAList,
     unexpectedList,
     dublicateFunctionDeclaration,
+    dublicateRecordFields,
+    dublicateRecordTypeFields,
   )
 where
 
 import Control.Arrow (ArrowChoice (right))
-import Control.Monad (forM_)
+import Control.Monad (forM_, when)
 import qualified Control.Monad (zipWithM_)
 import Data.Char (GeneralCategory (Control))
 import Data.Foldable (traverse_)
@@ -45,6 +47,13 @@ nthElement :: Integer -> [a] -> Maybe a
 nthElement 1 (x : _) = Just x
 nthElement n (_ : xs) | n > 1 = nthElement (n - 1) xs
 nthElement _ _ = Nothing
+
+hasDuplicateBy :: (a -> a -> Bool) -> [a] -> Bool
+hasDuplicateBy eq xs =
+  any (\(x, rest) -> any (eq x) rest) (zip xs (tail (tails xs)))
+  where
+    tails [] = []
+    tails ys@(_ : ts) = ys : tails ts
 
 unexpectedTypeForExpression :: String
 unexpectedTypeForExpression = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
@@ -114,6 +123,12 @@ unexpectedList = "ERROR_UNEXPECTED_LIST"
 
 dublicateFunctionDeclaration :: String
 dublicateFunctionDeclaration = "ERROR_DUPLICATE_FUNCTION_DECLARATION"
+
+dublicateRecordFields :: String
+dublicateRecordFields = "ERROR_DUPLICATE_RECORD_FIELDS"
+
+dublicateRecordTypeFields :: String
+dublicateRecordTypeFields = "ERROR_DUPLICATE_RECORD_TYPE_FIELDS"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -193,6 +208,8 @@ inferTypeExpression context (AbsSyntax.DotTuple tuple n) = do
 -- Record expr
 -- T-Record
 inferTypeExpression context (AbsSyntax.Record bindings) = do
+  when (hasDuplicateBy (\(AbsSyntax.ABinding lhs _) (AbsSyntax.ABinding rhs _) -> lhs == rhs) bindings) $
+    Left dublicateRecordFields
   bindingsType <-
     mapM
       ( \(AbsSyntax.ABinding ident expr) -> do

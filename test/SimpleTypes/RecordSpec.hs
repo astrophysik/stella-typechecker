@@ -2,7 +2,15 @@ module SimpleTypes.RecordSpec (spec) where
 
 import Test.Hspec
 import TestUtil
-import TypeCheck.TypeCheck (unexpectedFieldAccess, notARecord, unexpectedRecord, missingRecordFields, unexpectedRecordFields)
+import TypeCheck.TypeCheck
+  ( missingRecordFields,
+    notARecord,
+    unexpectedFieldAccess,
+    unexpectedRecord,
+    unexpectedRecordFields,
+    dublicateRecordFields,
+    dublicateRecordTypeFields,
+  )
 
 spec :: Spec
 spec = describe "record type tests" $ do
@@ -22,3 +30,7 @@ spec = describe "record type tests" $ do
     shouldFailFileWith "test/Programs/SimpleTypes/Record/ill-typed-missing-fields-lambda.stella" missingRecordFields
   it "ill typed unexpected record fields" $ do
     shouldFailFileWith "test/Programs/SimpleTypes/Record/ill-typed-unexpected-fields.stella" unexpectedRecordFields
+  it "ill typed dublicate record fields" $ do
+    shouldFailFileWith "test/Programs/SimpleTypes/Record/ill-typed-dublicate-field.stella" dublicateRecordFields
+  it "ill typed dublicate record type fields" $ do
+    shouldFailFileWith "test/Programs/SimpleTypes/Record/ill-typed-dublicate-field-type.stella" dublicateRecordTypeFields
