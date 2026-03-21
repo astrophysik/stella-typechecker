@@ -4,7 +4,7 @@ import qualified Core.IntSpec
 import qualified Core.LambdaSpec
 import qualified Decl.DeclSpec
 import qualified SimpleTypes.UnitSpec
-import qualified SimpleTypes.PairSpec
+import qualified SimpleTypes.TupleSpec
 
 main :: IO ()
 main = hspec $ do
@@ -13,5 +13,5 @@ main = hspec $ do
   Core.LambdaSpec.spec
   Decl.DeclSpec.spec
   SimpleTypes.UnitSpec.spec
-  SimpleTypes.PairSpec.spec
+  SimpleTypes.TupleSpec.spec
   

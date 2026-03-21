@@ -8,18 +8,23 @@ module TypeCheck.TypeCheck
     missingMain,
     notATuple,
     unexpectedTuple,
+    tupleIndexOutOfBounds,
   )
 where
 
 import Control.Arrow (ArrowChoice (right))
+import qualified Control.Monad (zipWithM_)
+import Data.Char (GeneralCategory (Control))
 import Data.Foldable (traverse_)
 import qualified Data.HashMap.Strict as HM
 import qualified Parsing.AbsSyntax as AbsSyntax
 
 type Context = HM.HashMap String AbsSyntax.Type
 
-emptyContext :: Context
-emptyContext = HM.empty
+nthElement :: Integer -> [a] -> Maybe a
+nthElement 1 (x : _) = Just x
+nthElement n (_ : xs) | n > 1 = nthElement (n - 1) xs
+nthElement _ _ = Nothing
 
 unexpectedTypeForExpression :: String
 unexpectedTypeForExpression = "ERROR_UNEXPECTED_TYPE_FOR_EXPRESSION"
@@ -44,6 +49,9 @@ missingMain = "ERROR_MISSING_MAIN"
 
 unexpectedTuple :: String
 unexpectedTuple = "ERROR_UNEXPECTED_TUPLE"
+
+tupleIndexOutOfBounds :: String
+tupleIndexOutOfBounds = "ERROR_TUPLE_INDEX_OUT_OF_BOUNDS"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -98,23 +106,21 @@ inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "apply functi
 -- Unit expr
 -- T-unit
 inferTypeExpression _ AbsSyntax.ConstUnit = Right AbsSyntax.TypeUnit
--- Pair expr
--- T-Pair
-inferTypeExpression context (AbsSyntax.Tuple [left, right]) = do
-  leftType <- inferTypeExpression context left
-  rightType <- inferTypeExpression context right
-  pure $ AbsSyntax.TypeTuple [leftType, rightType]
--- T-Proj1
-inferTypeExpression context (AbsSyntax.DotTuple tuple 1) = do
+-- Tuple expr
+-- T-Tuple
+inferTypeExpression context (AbsSyntax.Tuple elements)
+  | null elements = Left notATuple
+  | otherwise = do
+      elementsType <- mapM (inferTypeExpression context) elements
+      pure (AbsSyntax.TypeTuple elementsType)
+-- T-Proj
+inferTypeExpression context (AbsSyntax.DotTuple tuple n) = do
   tupleType <- inferTypeExpression context tuple
   case tupleType of
-    (AbsSyntax.TypeTuple [left, _]) -> pure left
-    _ -> Left notATuple
--- T-Proj2
-inferTypeExpression context (AbsSyntax.DotTuple tuple 2) = do
-  tupleType <- inferTypeExpression context tuple
-  case tupleType of
-    (AbsSyntax.TypeTuple [_, right]) -> pure right
+    (AbsSyntax.TypeTuple elementsType) ->
+      case nthElement n elementsType of
+        Nothing -> Left tupleIndexOutOfBounds
+        Just typeNth -> pure typeNth
     _ -> Left notATuple
 inferTypeExpression _ _ = Left "unsupported"
 
@@ -181,26 +187,24 @@ checkTypeExpression context (AbsSyntax.Application function [argument]) expected
 -- Unit expr
 -- T-unit
 checkTypeExpression _ AbsSyntax.ConstUnit expectedType = if expectedType == AbsSyntax.TypeUnit then Right () else Left unexpectedTypeForExpression
--- Pair expr
--- T-Pair
-checkTypeExpression context (AbsSyntax.Tuple [left, right]) expectedType = do
+-- Tuple expr
+-- T-Tuple
+checkTypeExpression context (AbsSyntax.Tuple elements) expectedType = do
   case expectedType of
-    (AbsSyntax.TypeTuple [leftType, rightType]) -> do
-      checkTypeExpression context left leftType
-      checkTypeExpression context right rightType
-      pure ()
+    (AbsSyntax.TypeTuple elementsType) ->
+      if length elements /= length elementsType
+        then Left unexpectedTuple
+        else do
+          Control.Monad.zipWithM_ (checkTypeExpression context) elements elementsType
     _ -> Left unexpectedTuple
--- T-Proj1
-checkTypeExpression context (AbsSyntax.DotTuple tuple 1) expectedType = do
+-- T-Proj
+checkTypeExpression context (AbsSyntax.DotTuple tuple n) expectedType = do
   tupleType <- inferTypeExpression context tuple
   case tupleType of
-    (AbsSyntax.TypeTuple [leftType, _]) -> if expectedType == leftType then Right () else Left unexpectedTypeForExpression
-    _ -> Left notATuple
--- T-Proj2
-checkTypeExpression context (AbsSyntax.DotTuple tuple 2) expectedType = do
-  tupleType <- inferTypeExpression context tuple
-  case tupleType of
-    (AbsSyntax.TypeTuple [_, rightType]) -> if expectedType == rightType then Right () else Left unexpectedTypeForExpression
+    (AbsSyntax.TypeTuple elementsType) ->
+      case nthElement n elementsType of
+        Nothing -> Left tupleIndexOutOfBounds
+        Just typeNth -> if expectedType == typeNth then Right () else Left unexpectedTypeForExpression
     _ -> Left notATuple
 checkTypeExpression _ _ _ = Left "unsupported"
 
@@ -209,7 +213,7 @@ checkDeclarations _ [] = Right ()
 checkDeclarations programContext ((AbsSyntax.DeclFun _ _ params (AbsSyntax.SomeReturnType returnType) _ _ expr) : xs) = do
   let functionContext = foldl (\context (AbsSyntax.AParamDecl (AbsSyntax.StellaIdent varName) varType) -> HM.insert varName varType context) programContext params
   checkTypeExpression functionContext expr returnType
-  checkDeclarations programContext xs 
+  checkDeclarations programContext xs
 checkDeclarations _ _ = Left "Unsupported declaration"
 
 collectDeclarations :: [AbsSyntax.Decl] -> Either String Context
