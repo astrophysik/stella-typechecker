@@ -70,6 +70,7 @@ test-suite typechecker-test
       Core.IntSpec
       Core.LambdaSpec
       Decl.DeclSpec
+      DerivedForms.LetSpec
       SimpleTypes.RecordSpec
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec

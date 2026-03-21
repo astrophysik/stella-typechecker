@@ -1,0 +1,11 @@
+language core;
+extend with #let-bindings;
+
+fn Nat::average(n : Nat) -> fn(Nat) -> Nat {
+  return fn(m : Nat) {
+    return let sum = add(n)(m) in
+           let two = succ(succ(0)) in
+           // Assuming we have defined the division function
+           Nat::div(sum)(two)
+  }
+}

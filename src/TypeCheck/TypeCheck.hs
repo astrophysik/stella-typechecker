@@ -166,6 +166,14 @@ inferTypeExpression context (AbsSyntax.DotRecord record ident) = do
       Nothing -> Left unexpectedFieldAccess
       Just (AbsSyntax.ARecordFieldType _ fieldType) -> Right fieldType
     _ -> Left notARecord
+-- Let bindings
+-- T-Let
+inferTypeExpression content (AbsSyntax.Let bindings expr) = do
+  case bindings of 
+    [AbsSyntax.APatternBinding (AbsSyntax.PatternVar (AbsSyntax.StellaIdent name)) value] -> do
+      valueType <- inferTypeExpression content value
+      inferTypeExpression (HM.insert name valueType content) expr
+    _ -> Left "let with several arguments is unsupported"
 inferTypeExpression _ _ = Left "unsupported"
 
 -- Type check
@@ -293,6 +301,14 @@ checkTypeExpression context (AbsSyntax.DotRecord record ident) expectedType = do
       Nothing -> Left unexpectedFieldAccess
       Just (AbsSyntax.ARecordFieldType _ fieldType) -> if fieldType == expectedType then Right () else Left unexpectedTypeForExpression
     _ -> Left notARecord
+-- Let bindings
+-- T-Let
+checkTypeExpression content (AbsSyntax.Let bindings expr) expectedType = do
+  case bindings of 
+    [AbsSyntax.APatternBinding (AbsSyntax.PatternVar (AbsSyntax.StellaIdent name)) value] -> do
+      valueType <- inferTypeExpression content value
+      checkTypeExpression (HM.insert name valueType content) expr expectedType
+    _ -> Left "let with several arguments is unsupported"
 checkTypeExpression _ _ _ = Left "unsupported"
 
 checkDeclarations :: Context -> [AbsSyntax.Decl] -> Either String ()
