@@ -9,15 +9,25 @@ module TypeCheck.TypeCheck
     notATuple,
     unexpectedTuple,
     tupleIndexOutOfBounds,
+    unexpectedRecord, 
+    notARecord,
+    unexpectedFieldAccess,
+    missingRecordFields,
+    unexpectedRecordFields
   )
 where
 
 import Control.Arrow (ArrowChoice (right))
+import Control.Monad (forM_)
 import qualified Control.Monad (zipWithM_)
 import Data.Char (GeneralCategory (Control))
 import Data.Foldable (traverse_)
 import qualified Data.HashMap.Strict as HM
+import qualified Data.List
+import qualified Data.Map.Strict as M
+import qualified Data.Set as S
 import qualified Parsing.AbsSyntax as AbsSyntax
+import qualified Parsing.ParSyntax as AbsSyntax
 
 type Context = HM.HashMap String AbsSyntax.Type
 
@@ -38,6 +48,9 @@ notAFunction = "ERROR_NOT_A_FUNCTION"
 notATuple :: String
 notATuple = "ERROR_NOT_A_TUPLE"
 
+notARecord :: String
+notARecord = "ERROR_NOT_A_RECORD"
+
 unexpectedTypeForParam :: String
 unexpectedTypeForParam = "ERROR_UNEXPECTED_TYPE_FOR_PARAMETER"
 
@@ -50,8 +63,20 @@ missingMain = "ERROR_MISSING_MAIN"
 unexpectedTuple :: String
 unexpectedTuple = "ERROR_UNEXPECTED_TUPLE"
 
+unexpectedRecord :: String
+unexpectedRecord = "ERROR_UNEXPECTED_RECORD"
+
+unexpectedFieldAccess :: String
+unexpectedFieldAccess = "ERROR_UNEXPECTED_FIELD_ACCESS"
+
 tupleIndexOutOfBounds :: String
 tupleIndexOutOfBounds = "ERROR_TUPLE_INDEX_OUT_OF_BOUNDS"
+
+missingRecordFields :: String
+missingRecordFields = "ERROR_MISSING_RECORD_FIELDS"
+
+unexpectedRecordFields :: String
+unexpectedRecordFields = "ERROR_UNEXPECTED_RECORD_FIELDS"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -122,6 +147,25 @@ inferTypeExpression context (AbsSyntax.DotTuple tuple n) = do
         Nothing -> Left tupleIndexOutOfBounds
         Just typeNth -> pure typeNth
     _ -> Left notATuple
+-- Record expr
+-- T-Record
+inferTypeExpression context (AbsSyntax.Record bindings) = do
+  bindingsType <-
+    mapM
+      ( \(AbsSyntax.ABinding ident expr) -> do
+          exprType <- inferTypeExpression context expr
+          pure (AbsSyntax.ARecordFieldType ident exprType)
+      )
+      bindings
+  pure (AbsSyntax.TypeRecord bindingsType)
+-- T-Record-Proj
+inferTypeExpression context (AbsSyntax.DotRecord record ident) = do
+  recordType <- inferTypeExpression context record
+  case recordType of
+    (AbsSyntax.TypeRecord bindings) -> case Data.List.find (\(AbsSyntax.ARecordFieldType fieldName _) -> fieldName == ident) bindings of
+      Nothing -> Left unexpectedFieldAccess
+      Just (AbsSyntax.ARecordFieldType _ fieldType) -> Right fieldType
+    _ -> Left notARecord
 inferTypeExpression _ _ = Left "unsupported"
 
 -- Type check
@@ -206,6 +250,49 @@ checkTypeExpression context (AbsSyntax.DotTuple tuple n) expectedType = do
         Nothing -> Left tupleIndexOutOfBounds
         Just typeNth -> if expectedType == typeNth then Right () else Left unexpectedTypeForExpression
     _ -> Left notATuple
+-- Record expr
+-- T-Record
+checkTypeExpression context (AbsSyntax.Record bindings) expectedType =
+  case expectedType of
+    AbsSyntax.TypeRecord bindingsType -> do
+      let exprMap :: M.Map AbsSyntax.StellaIdent AbsSyntax.Expr
+          exprMap =
+            M.fromList
+              [ (ident, expr)
+                | AbsSyntax.ABinding ident expr <- bindings
+              ]
+
+      let typeMap :: M.Map AbsSyntax.StellaIdent AbsSyntax.Type
+          typeMap =
+            M.fromList
+              [ (ident, ty)
+                | AbsSyntax.ARecordFieldType ident ty <- bindingsType
+              ]
+
+      let exprKeys = M.keysSet exprMap
+          typeKeys = M.keysSet typeMap
+
+      let extraInExpr = S.difference exprKeys typeKeys
+      if not (S.null extraInExpr)
+        then Left unexpectedRecordFields 
+        else do
+          let extraInType = S.difference typeKeys exprKeys
+          if not (S.null extraInType)
+            then Left missingRecordFields
+            else do
+              forM_ (M.toList exprMap) $ \(ident, expr) ->
+                case M.lookup ident typeMap of
+                  Nothing -> Left "impossible"
+                  Just ty -> checkTypeExpression context expr ty
+    _ -> Left unexpectedRecord
+-- T-Record-Proj
+checkTypeExpression context (AbsSyntax.DotRecord record ident) expectedType = do
+  recordType <- inferTypeExpression context record
+  case recordType of
+    (AbsSyntax.TypeRecord bindings) -> case Data.List.find (\(AbsSyntax.ARecordFieldType fieldName _) -> fieldName == ident) bindings of
+      Nothing -> Left unexpectedFieldAccess
+      Just (AbsSyntax.ARecordFieldType _ fieldType) -> if fieldType == expectedType then Right () else Left unexpectedTypeForExpression
+    _ -> Left notARecord
 checkTypeExpression _ _ _ = Left "unsupported"
 
 checkDeclarations :: Context -> [AbsSyntax.Decl] -> Either String ()

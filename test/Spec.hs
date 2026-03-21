@@ -5,6 +5,7 @@ import qualified Core.LambdaSpec
 import qualified Decl.DeclSpec
 import qualified SimpleTypes.UnitSpec
 import qualified SimpleTypes.TupleSpec
+import qualified SimpleTypes.RecordSpec
 
 main :: IO ()
 main = hspec $ do
@@ -14,4 +15,5 @@ main = hspec $ do
   Decl.DeclSpec.spec
   SimpleTypes.UnitSpec.spec
   SimpleTypes.TupleSpec.spec
+  SimpleTypes.RecordSpec.spec
   

@@ -43,6 +43,7 @@ library
   build-depends:
       array
     , base >=4.7 && <5
+    , containers
     , unordered-containers
   default-language: Haskell2010
 
@@ -69,6 +70,7 @@ test-suite typechecker-test
       Core.IntSpec
       Core.LambdaSpec
       Decl.DeclSpec
+      SimpleTypes.RecordSpec
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec
       TestUtil

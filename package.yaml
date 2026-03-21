@@ -38,6 +38,7 @@ library:
   dependencies:
     - array
     - unordered-containers
+    - containers
 
 executables:
   typechecker-exe:
