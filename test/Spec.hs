@@ -6,7 +6,8 @@ import qualified Decl.DeclSpec
 import qualified SimpleTypes.UnitSpec
 import qualified SimpleTypes.TupleSpec
 import qualified SimpleTypes.RecordSpec
-import qualified SimpleTypes.SumTypes
+import qualified SimpleTypes.SumTypesSpec
+import qualified SimpleTypes.ListSpec
 
 main :: IO ()
 main = hspec $ do
@@ -17,5 +18,6 @@ main = hspec $ do
   SimpleTypes.UnitSpec.spec
   SimpleTypes.TupleSpec.spec
   SimpleTypes.RecordSpec.spec
-  SimpleTypes.SumTypes.spec
+  SimpleTypes.SumTypesSpec.spec
+  SimpleTypes.ListSpec.spec
   

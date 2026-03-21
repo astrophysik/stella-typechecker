@@ -9,7 +9,7 @@ module TypeCheck.TypeCheck
     notATuple,
     unexpectedTuple,
     tupleIndexOutOfBounds,
-    unexpectedRecord, 
+    unexpectedRecord,
     notARecord,
     unexpectedFieldAccess,
     missingRecordFields,
@@ -18,7 +18,10 @@ module TypeCheck.TypeCheck
     illegalEmptyMatching,
     nonExhaustiveMatchPatterns,
     unepxectedPatternForType,
-    unexpectedInjection
+    unexpectedInjection,
+    ambiguousList,
+    notAList,
+    unexpectedList,
   )
 where
 
@@ -98,6 +101,14 @@ unepxectedPatternForType = "ERROR_UNEXPECTED_PATTERN_FOR_TYPE"
 unexpectedInjection :: String
 unexpectedInjection = "ERROR_UNEXPECTED_INJECTION"
 
+ambiguousList :: String
+ambiguousList = "ERROR_AMBIGUOUS_LIST"
+
+notAList :: String
+notAList = "ERROR_NOT_A_LIST"
+
+unexpectedList :: String
+unexpectedList = "ERROR_UNEXPECTED_LIST"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -190,12 +201,12 @@ inferTypeExpression context (AbsSyntax.DotRecord record ident) = do
 -- Let bindings
 -- T-Let
 inferTypeExpression context (AbsSyntax.Let bindings expr) = do
-  case bindings of 
+  case bindings of
     [AbsSyntax.APatternBinding (AbsSyntax.PatternVar (AbsSyntax.StellaIdent name)) value] -> do
       valueType <- inferTypeExpression context value
       inferTypeExpression (HM.insert name valueType context) expr
     _ -> Left "let with several arguments is unsupported"
--- Type Ascriptions 
+-- Type Ascriptions
 inferTypeExpression context (AbsSyntax.TypeAsc expr exprType) = do
   checkTypeExpression context expr exprType
   pure exprType
@@ -207,22 +218,58 @@ inferTypeExpression _ (AbsSyntax.Inr _) = Left ambiguousVariantType
 -- T-Case
 inferTypeExpression context (AbsSyntax.Match expr matchCases) = do
   exprType <- inferTypeExpression context expr
-  case exprType of 
-    (AbsSyntax.TypeSum leftType rightType)-> case matchCases of 
-      [AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr, 
-          AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
-      [AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr, 
-          AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
+  case exprType of
+    (AbsSyntax.TypeSum leftType rightType) -> case matchCases of
+      [ AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
+        AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
+        ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
+      [ AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
+        AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
+        ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
       [] -> Left illegalEmptyMatching
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left nonExhaustiveMatchPatterns
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left nonExhaustiveMatchPatterns
       _ -> Left unepxectedPatternForType
     _ -> Left unexpectedTypeForExpression
-    where 
-      inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do 
-        leftExprType <- inferTypeExpression (HM.insert leftVarName leftVarType context) leftExpr
-        checkTypeExpression (HM.insert rightVarName rightVarType context) rightExpr leftExprType
-        pure leftExprType
+  where
+    inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do
+      leftExprType <- inferTypeExpression (HM.insert leftVarName leftVarType context) leftExpr
+      checkTypeExpression (HM.insert rightVarName rightVarType context) rightExpr leftExprType
+      pure leftExprType
+-- List expressions
+inferTypeExpression context (AbsSyntax.List (h : t)) = do
+  headType <- inferTypeExpression context h
+  mapM_
+    ( \element -> do
+        checkTypeExpression context element headType
+    )
+    t
+  pure (AbsSyntax.TypeList headType)
+-- T-Nil
+inferTypeExpression _ (AbsSyntax.List []) = Left ambiguousList
+-- T-Cons
+inferTypeExpression context (AbsSyntax.ConsList listHead listTail) = do
+  headType <- inferTypeExpression context listHead
+  checkTypeExpression context listTail (AbsSyntax.TypeList headType)
+  pure headType
+-- T-IsNil
+inferTypeExpression context (AbsSyntax.IsEmpty list) = do
+  listType <- inferTypeExpression context list
+  case listType of
+    (AbsSyntax.TypeList _) -> pure AbsSyntax.TypeBool
+    _ -> Left notAList
+-- T-Head
+inferTypeExpression context (AbsSyntax.Head list) = do
+  listType <- inferTypeExpression context list
+  case listType of
+    (AbsSyntax.TypeList headType) -> pure headType
+    _ -> Left notAList
+-- T-Tail
+inferTypeExpression context (AbsSyntax.Tail list) = do
+  listType <- inferTypeExpression context list
+  case listType of
+    (AbsSyntax.TypeList _) -> pure listType
+    _ -> Left notAList
 inferTypeExpression _ _ = Left "unsupported"
 
 -- Type check
@@ -331,7 +378,7 @@ checkTypeExpression context (AbsSyntax.Record bindings) expectedType =
 
       let extraInExpr = S.difference exprKeys typeKeys
       if not (S.null extraInExpr)
-        then Left unexpectedRecordFields 
+        then Left unexpectedRecordFields
         else do
           let extraInType = S.difference typeKeys exprKeys
           if not (S.null extraInType)
@@ -353,45 +400,88 @@ checkTypeExpression context (AbsSyntax.DotRecord record ident) expectedType = do
 -- Let bindings
 -- T-Let
 checkTypeExpression content (AbsSyntax.Let bindings expr) expectedType = do
-  case bindings of 
+  case bindings of
     [AbsSyntax.APatternBinding (AbsSyntax.PatternVar (AbsSyntax.StellaIdent name)) value] -> do
       valueType <- inferTypeExpression content value
       checkTypeExpression (HM.insert name valueType content) expr expectedType
     _ -> Left "let with several arguments is unsupported"
--- Type Ascriptions 
+-- Type Ascriptions
 checkTypeExpression context (AbsSyntax.TypeAsc expr exprType) expectedType = do
   checkTypeExpression context expr exprType
   if expectedType == exprType then Right () else Left unexpectedTypeForExpression
 -- Type Sum
 -- T-inl
-checkTypeExpression context (AbsSyntax.Inl inlExpr) expectedType = 
+checkTypeExpression context (AbsSyntax.Inl inlExpr) expectedType =
   case expectedType of
-    (AbsSyntax.TypeSum inlType _) -> checkTypeExpression context inlExpr inlType 
+    (AbsSyntax.TypeSum inlType _) -> checkTypeExpression context inlExpr inlType
     _ -> Left unexpectedInjection
 -- T-inr
-checkTypeExpression context (AbsSyntax.Inr inrExpr) expectedType = 
+checkTypeExpression context (AbsSyntax.Inr inrExpr) expectedType =
   case expectedType of
-    (AbsSyntax.TypeSum _ inrType) -> checkTypeExpression context inrExpr inrType 
+    (AbsSyntax.TypeSum _ inrType) -> checkTypeExpression context inrExpr inrType
     _ -> Left unexpectedInjection
 -- T-Case
-checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do 
+checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
   exprType <- inferTypeExpression context expr
-  case exprType of 
-    (AbsSyntax.TypeSum leftType rightType)-> case matchCases of 
-      [AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr, 
-          AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
-      [AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr, 
-          AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
+  case exprType of
+    (AbsSyntax.TypeSum leftType rightType) -> case matchCases of
+      [ AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
+        AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
+        ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
+      [ AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
+        AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
+        ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
       [] -> Left illegalEmptyMatching
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left nonExhaustiveMatchPatterns
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left nonExhaustiveMatchPatterns
       _ -> Left unepxectedPatternForType
     _ -> Left unepxectedPatternForType
-    where 
-      inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do 
-        checkTypeExpression (HM.insert leftVarName leftVarType context) leftExpr expectedType
-        checkTypeExpression (HM.insert rightVarName rightVarType context) rightExpr expectedType
-        pure ()
+  where
+    inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do
+      checkTypeExpression (HM.insert leftVarName leftVarType context) leftExpr expectedType
+      checkTypeExpression (HM.insert rightVarName rightVarType context) rightExpr expectedType
+      pure ()
+-- List expressions
+checkTypeExpression context (AbsSyntax.List (h : t)) expectedType = case expectedType of
+  (AbsSyntax.TypeList typeElement) -> do
+    checkTypeExpression context h typeElement
+    mapM_
+      ( \element -> do
+          checkTypeExpression context element typeElement
+      )
+      t
+  _ -> Left unexpectedList
+-- T-Nil
+checkTypeExpression context (AbsSyntax.List []) expectedType = case expectedType of
+  (AbsSyntax.TypeList _) -> Right ()
+  _ -> Left unexpectedList
+-- T-Cons
+checkTypeExpression context (AbsSyntax.ConsList listHead listTail) expectedType = case expectedType of
+  (AbsSyntax.TypeList elementType) -> do
+    checkTypeExpression context listHead elementType
+    checkTypeExpression context listTail expectedType
+    pure ()
+  _ -> Left unexpectedList
+-- T-IsNil
+checkTypeExpression context (AbsSyntax.IsEmpty list) expectedType = case expectedType of
+  AbsSyntax.TypeBool -> do
+    listType <- inferTypeExpression context list
+    case listType of
+      (AbsSyntax.TypeList _) -> Right ()
+      _ -> Left notAList
+  _ -> Left unexpectedTypeForExpression
+-- T-Head
+checkTypeExpression context (AbsSyntax.Head list) expectedType = do
+  listType <- inferTypeExpression context list 
+  case listType of
+    (AbsSyntax.TypeList elementType) -> if expectedType == elementType then Right () else Left unexpectedTypeForExpression
+    _ -> Left notAList
+-- T-Tail
+checkTypeExpression context (AbsSyntax.Tail list) expectedType = do 
+  listType <- inferTypeExpression context list 
+  case listType of
+    (AbsSyntax.TypeList _) -> if expectedType == listType then Right () else Left unexpectedTypeForExpression
+    _ -> Left notAList
 checkTypeExpression _ _ _ = Left "unsupported"
 
 checkDeclarations :: Context -> [AbsSyntax.Decl] -> Either String ()
