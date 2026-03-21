@@ -26,6 +26,7 @@ module TypeCheck.TypeCheck
     dublicateRecordFields,
     dublicateRecordTypeFields,
     ambiguousSumType,
+    unexpectedTupleLength,
   )
 where
 
@@ -133,6 +134,9 @@ dublicateRecordTypeFields = "ERROR_DUPLICATE_RECORD_TYPE_FIELDS"
 
 ambiguousSumType :: String
 ambiguousSumType = "ERROR_AMBIGUOUS_SUM_TYPE"
+
+unexpectedTupleLength :: String
+unexpectedTupleLength = "ERROR_UNEXPECTED_TUPLE_LENGTH"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -390,7 +394,7 @@ checkTypeExpression context (AbsSyntax.Tuple elements) expectedType = do
   case expectedType of
     (AbsSyntax.TypeTuple elementsType) ->
       if length elements /= length elementsType
-        then Left unexpectedTuple
+        then Left unexpectedTupleLength
         else do
           Control.Monad.zipWithM_ (checkTypeExpression context) elements elementsType
     _ -> Left unexpectedTuple

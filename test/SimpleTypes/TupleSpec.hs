@@ -1,8 +1,13 @@
 module SimpleTypes.TupleSpec (spec) where
 
 import Test.Hspec
-import TestUtil
-import TypeCheck.TypeCheck (notATuple, unexpectedTuple, tupleIndexOutOfBounds)
+import TestUtil (shouldFailFileWith, shouldTypecheckFile)
+import TypeCheck.TypeCheck
+  ( notATuple,
+    tupleIndexOutOfBounds,
+    unexpectedTuple,
+    unexpectedTupleLength,
+  )
 
 spec :: Spec
 spec = describe "tuple type tests" $ do
@@ -20,4 +25,5 @@ spec = describe "tuple type tests" $ do
     shouldFailFileWith "test/Programs/SimpleTypes/Tuple/ill-typed-unexpected-tuple-call.stella" unexpectedTuple
   it "ill typed index out of bound" $ do
     shouldFailFileWith "test/Programs/SimpleTypes/Tuple/ill-typed-index-out-of-bound.stella" tupleIndexOutOfBounds
-
+  it "ill typed unexpected tuple length" $ do
+    shouldFailFileWith "test/Programs/SimpleTypes/Tuple/ill-typed-tuple-length.stella" unexpectedTupleLength
