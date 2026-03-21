@@ -73,6 +73,7 @@ test-suite typechecker-test
       DerivedForms.LetSpec
       DerivedForms.TypeAsc
       SimpleTypes.RecordSpec
+      SimpleTypes.SumTypes
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec
       TestUtil
