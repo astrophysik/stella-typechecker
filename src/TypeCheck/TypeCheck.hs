@@ -36,6 +36,7 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Parsing.AbsSyntax as AbsSyntax
 import qualified Parsing.ParSyntax as AbsSyntax
+import GHC.ExecutionStack (Location(functionName))
 
 type Context = HM.HashMap String AbsSyntax.Type
 
@@ -270,6 +271,15 @@ inferTypeExpression context (AbsSyntax.Tail list) = do
   case listType of
     (AbsSyntax.TypeList _) -> pure listType
     _ -> Left notAList
+-- fix expr
+-- T-Fix
+inferTypeExpression context (AbsSyntax.Fix function) = do 
+  functionType <- inferTypeExpression context function
+  case functionType of
+    (AbsSyntax.TypeFun [paramType] returnType) -> if paramType == returnType
+       then Right returnType 
+       else Left unexpectedTypeForExpression
+    _ -> Left notAFunction 
 inferTypeExpression _ _ = Left "unsupported"
 
 -- Type check
@@ -482,6 +492,15 @@ checkTypeExpression context (AbsSyntax.Tail list) expectedType = do
   case listType of
     (AbsSyntax.TypeList _) -> if expectedType == listType then Right () else Left unexpectedTypeForExpression
     _ -> Left notAList
+-- fix expr
+-- T-Fix
+checkTypeExpression context (AbsSyntax.Fix function) expectedType = do 
+  functionType <- inferTypeExpression context function
+  case functionType of
+    (AbsSyntax.TypeFun [paramType] returnType) -> if paramType == returnType
+       then Right () 
+       else Left unexpectedTypeForExpression
+    _ -> Left notAFunction 
 checkTypeExpression _ _ _ = Left "unsupported"
 
 checkDeclarations :: Context -> [AbsSyntax.Decl] -> Either String ()

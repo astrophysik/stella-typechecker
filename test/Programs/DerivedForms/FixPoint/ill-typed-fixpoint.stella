@@ -1,0 +1,11 @@
+language core;
+
+extend with #fixpoint-combinator;
+
+fn foo(a : Nat) -> Bool {
+  return false
+}
+
+fn main(n : Nat) -> Nat {
+  return (fn (a : Nat) { return fix(foo); } ) (0)
+}
