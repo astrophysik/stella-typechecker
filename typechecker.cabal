@@ -71,6 +71,7 @@ test-suite typechecker-test
       Core.LambdaSpec
       Decl.DeclSpec
       DerivedForms.LetSpec
+      DerivedForms.TypeAsc
       SimpleTypes.RecordSpec
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec
