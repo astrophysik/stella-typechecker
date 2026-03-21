@@ -3,7 +3,7 @@ module SimpleTypes.SumTypesSpec (spec) where
 import Test.Hspec
 import TestUtil
 import TypeCheck.TypeCheck
-  ( ambiguousVariantType,
+  ( ambiguousSumType,
     illegalEmptyMatching,
     nonExhaustiveMatchPatterns,
     unepxectedPatternForType,
@@ -22,6 +22,6 @@ spec = describe "sum types tests" $ do
   it "unexpected pattern match sum type" $ do
     shouldFailFileWith "test/Programs/SimpleTypes/SumTypes/ill-typed-unexpected-pattern.stella" unepxectedPatternForType
   it "ambiguous sum type" $ do
-    shouldFailFileWith "test/Programs/SimpleTypes/SumTypes/ill-typed-ambiguous.stella" ambiguousVariantType
+    shouldFailFileWith "test/Programs/SimpleTypes/SumTypes/ill-typed-ambiguous.stella" ambiguousSumType
   it "unexpected injection sum type" $ do
     shouldFailFileWith "test/Programs/SimpleTypes/SumTypes/ill-typed-unexpected-injection.stella" unexpectedInjection

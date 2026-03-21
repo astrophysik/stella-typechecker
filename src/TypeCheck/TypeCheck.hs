@@ -25,6 +25,7 @@ module TypeCheck.TypeCheck
     dublicateFunctionDeclaration,
     dublicateRecordFields,
     dublicateRecordTypeFields,
+    ambiguousSumType,
   )
 where
 
@@ -129,6 +130,9 @@ dublicateRecordFields = "ERROR_DUPLICATE_RECORD_FIELDS"
 
 dublicateRecordTypeFields :: String
 dublicateRecordTypeFields = "ERROR_DUPLICATE_RECORD_TYPE_FIELDS"
+
+ambiguousSumType :: String
+ambiguousSumType = "ERROR_AMBIGUOUS_SUM_TYPE"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -240,9 +244,9 @@ inferTypeExpression context (AbsSyntax.TypeAsc expr exprType) = do
   pure exprType
 -- Type Sum
 -- T-inl
-inferTypeExpression _ (AbsSyntax.Inl _) = Left ambiguousVariantType
+inferTypeExpression _ (AbsSyntax.Inl _) = Left ambiguousSumType
 -- T-inr
-inferTypeExpression _ (AbsSyntax.Inr _) = Left ambiguousVariantType
+inferTypeExpression _ (AbsSyntax.Inr _) = Left ambiguousSumType
 -- T-Case
 inferTypeExpression context (AbsSyntax.Match expr matchCases) = do
   exprType <- inferTypeExpression context expr
