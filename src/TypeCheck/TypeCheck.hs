@@ -139,6 +139,12 @@ inferTypeExpression context (AbsSyntax.Pred integer) = do
 inferTypeExpression context (AbsSyntax.IsZero integer) = do
   checkTypeExpression context integer AbsSyntax.TypeNat
   pure AbsSyntax.TypeBool
+-- T-Rec
+inferTypeExpression context (AbsSyntax.NatRec n z s) = do
+  checkTypeExpression context n AbsSyntax.TypeNat
+  zType <- inferTypeExpression context z
+  checkTypeExpression context s (AbsSyntax.TypeFun [AbsSyntax.TypeNat] (AbsSyntax.TypeFun [zType] zType)) -- not a function?
+  pure zType
 -- Lambda expressions
 -- T-Var
 inferTypeExpression context (AbsSyntax.Var (AbsSyntax.StellaIdent var)) = case HM.lookup var context of
@@ -316,6 +322,13 @@ checkTypeExpression context (AbsSyntax.Pred integer) expectedType = case expecte
 checkTypeExpression context (AbsSyntax.IsZero integer) expectedType = case expectedType of
   AbsSyntax.TypeBool -> checkTypeExpression context integer AbsSyntax.TypeNat
   _ -> Left unexpectedTypeForExpression
+-- T-Rec
+checkTypeExpression context (AbsSyntax.NatRec n z s) expectedType = do
+  checkTypeExpression context n AbsSyntax.TypeNat
+  checkTypeExpression context z expectedType
+  checkTypeExpression context s (AbsSyntax.TypeFun [AbsSyntax.TypeNat] (AbsSyntax.TypeFun [expectedType] expectedType)) -- not a function?
+  pure ()
+-- Lambda expressions
 -- T-Var
 checkTypeExpression context var@(AbsSyntax.Var _) expectedType = do
   varType <- inferTypeExpression context var

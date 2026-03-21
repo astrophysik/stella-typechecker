@@ -20,3 +20,7 @@ spec = describe "integer tests" $ do
     shouldTypecheckFile "test/Programs/Core/Integer/iszero.stella"
   it "ill typed iszero" $ do
     shouldFailFileWith "test/Programs/Core/Integer/ill-typed-iszero.stella" unexpectedTypeForExpression
+  it "nat rec" $ do
+    shouldTypecheckFile "test/Programs/Core/Integer/nat-rec.stella"
+  it "ill-typed nat rec" $ do
+    shouldFailFileWith "test/Programs/Core/Integer/ill-typed-nat-rec.stella" unexpectedTypeForExpression

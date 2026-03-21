@@ -20,4 +20,3 @@ main = hspec $ do
   SimpleTypes.RecordSpec.spec
   SimpleTypes.SumTypesSpec.spec
   SimpleTypes.ListSpec.spec
-  -- Nat::rec, Records
