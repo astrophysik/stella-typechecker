@@ -22,6 +22,7 @@ module TypeCheck.TypeCheck
     ambiguousList,
     notAList,
     unexpectedList,
+    dublicateFunctionDeclaration,
   )
 where
 
@@ -34,9 +35,9 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
+import GHC.ExecutionStack (Location (functionName))
 import qualified Parsing.AbsSyntax as AbsSyntax
 import qualified Parsing.ParSyntax as AbsSyntax
-import GHC.ExecutionStack (Location(functionName))
 
 type Context = HM.HashMap String AbsSyntax.Type
 
@@ -110,6 +111,9 @@ notAList = "ERROR_NOT_A_LIST"
 
 unexpectedList :: String
 unexpectedList = "ERROR_UNEXPECTED_LIST"
+
+dublicateFunctionDeclaration :: String
+dublicateFunctionDeclaration = "ERROR_DUPLICATE_FUNCTION_DECLARATION"
 
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
@@ -279,13 +283,14 @@ inferTypeExpression context (AbsSyntax.Tail list) = do
     _ -> Left notAList
 -- fix expr
 -- T-Fix
-inferTypeExpression context (AbsSyntax.Fix function) = do 
+inferTypeExpression context (AbsSyntax.Fix function) = do
   functionType <- inferTypeExpression context function
   case functionType of
-    (AbsSyntax.TypeFun [paramType] returnType) -> if paramType == returnType
-       then Right returnType 
-       else Left unexpectedTypeForExpression
-    _ -> Left notAFunction 
+    (AbsSyntax.TypeFun [paramType] returnType) ->
+      if paramType == returnType
+        then Right returnType
+        else Left unexpectedTypeForExpression
+    _ -> Left notAFunction
 inferTypeExpression _ _ = Left "unsupported"
 
 -- Type check
@@ -495,25 +500,26 @@ checkTypeExpression context (AbsSyntax.IsEmpty list) expectedType = case expecte
   _ -> Left unexpectedTypeForExpression
 -- T-Head
 checkTypeExpression context (AbsSyntax.Head list) expectedType = do
-  listType <- inferTypeExpression context list 
+  listType <- inferTypeExpression context list
   case listType of
     (AbsSyntax.TypeList elementType) -> if expectedType == elementType then Right () else Left unexpectedTypeForExpression
     _ -> Left notAList
 -- T-Tail
-checkTypeExpression context (AbsSyntax.Tail list) expectedType = do 
-  listType <- inferTypeExpression context list 
+checkTypeExpression context (AbsSyntax.Tail list) expectedType = do
+  listType <- inferTypeExpression context list
   case listType of
     (AbsSyntax.TypeList _) -> if expectedType == listType then Right () else Left unexpectedTypeForExpression
     _ -> Left notAList
 -- fix expr
 -- T-Fix
-checkTypeExpression context (AbsSyntax.Fix function) expectedType = do 
+checkTypeExpression context (AbsSyntax.Fix function) expectedType = do
   functionType <- inferTypeExpression context function
   case functionType of
-    (AbsSyntax.TypeFun [paramType] returnType) -> if paramType == returnType
-       then Right () 
-       else Left unexpectedTypeForExpression
-    _ -> Left notAFunction 
+    (AbsSyntax.TypeFun [paramType] returnType) ->
+      if paramType == returnType
+        then Right ()
+        else Left unexpectedTypeForExpression
+    _ -> Left notAFunction
 checkTypeExpression _ _ _ = Left "unsupported"
 
 checkDeclarations :: Context -> [AbsSyntax.Decl] -> Either String ()
@@ -528,7 +534,9 @@ collectDeclarations :: [AbsSyntax.Decl] -> Either String Context
 collectDeclarations [] = Right HM.empty
 collectDeclarations ((AbsSyntax.DeclFun _ (AbsSyntax.StellaIdent name) [AbsSyntax.AParamDecl _ paramType] (AbsSyntax.SomeReturnType returnType) _ _ _) : xs) = do
   tailContext <- collectDeclarations xs
-  pure $ HM.insert name (AbsSyntax.TypeFun [paramType] returnType) tailContext
+  case HM.lookup name tailContext of
+    Just _ -> Left dublicateFunctionDeclaration
+    _ -> pure $ HM.insert name (AbsSyntax.TypeFun [paramType] returnType) tailContext
 collectDeclarations _ = Left "Unsupported declaration"
 
 typeCheck :: AbsSyntax.Program -> Either String ()
