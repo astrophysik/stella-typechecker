@@ -138,6 +138,10 @@ ambiguousSumType = "ERROR_AMBIGUOUS_SUM_TYPE"
 unexpectedTupleLength :: String
 unexpectedTupleLength = "ERROR_UNEXPECTED_TUPLE_LENGTH"
 
+formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
+formatUnexpectedTypeForExpressionMsg expectedType realType expression = unexpectedTypeForExpression ++
+  "expected type\n\t" ++ show expectedType ++ "\nbut got\n\t" ++ show realType ++ "\nwhen typechecking the expression\n\t" ++ show expression 
+
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
 -- Boolean expressions
@@ -176,13 +180,13 @@ inferTypeExpression context (AbsSyntax.NatRec n z s) = do
 -- T-Var
 inferTypeExpression context (AbsSyntax.Var (AbsSyntax.StellaIdent var)) = case HM.lookup var context of
   Just tValue -> Right tValue
-  Nothing -> Left undefinedVariable
+  Nothing -> Left (undefinedVariable ++ "\nundefined variable " ++ var)
 -- T-Abs
 inferTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl (AbsSyntax.StellaIdent var) varType] body) = do
   bodyType <- inferTypeExpression (HM.insert var varType context) body
   pure $ AbsSyntax.TypeFun [varType] bodyType
-inferTypeExpression _ (AbsSyntax.Abstraction [] _) = Left "function with zero arguments"
-inferTypeExpression _ (AbsSyntax.Abstraction (_ : _ : _) _) = Left "function with several arguments"
+inferTypeExpression _ (AbsSyntax.Abstraction [] _) = Left "unsupported function with zero arguments"
+inferTypeExpression _ (AbsSyntax.Abstraction (_ : _ : _) _) = Left "unsupported function with several arguments"
 -- T-App
 inferTypeExpression context (AbsSyntax.Application function [argument]) = do
   functionType <- inferTypeExpression context function
@@ -192,8 +196,8 @@ inferTypeExpression context (AbsSyntax.Application function [argument]) = do
         Left _ -> Left unexpectedTypeForParam
         Right _ -> pure bodyType
     _ -> Left notAFunction
-inferTypeExpression _ (AbsSyntax.Application _ []) = Left "apply function with zero arguments"
-inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "apply function with several arguments"
+inferTypeExpression _ (AbsSyntax.Application _ []) = Left "unsupported apply function with zero arguments"
+inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "unsupported apply function with several arguments"
 -- Unit expr
 -- T-unit
 inferTypeExpression _ AbsSyntax.ConstUnit = Right AbsSyntax.TypeUnit

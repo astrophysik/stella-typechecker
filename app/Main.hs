@@ -42,4 +42,4 @@ main = do
           Left msg -> do 
             hPutStrLn stderr msg
             exitFailure
-          Right () -> putStrLn "Input program is well-typed!\n"
+          Right () -> putStrLn "Input program is well-typed!"
