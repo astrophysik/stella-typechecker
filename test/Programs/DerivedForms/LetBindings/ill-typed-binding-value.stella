@@ -1,0 +1,6 @@
+language core;
+extend with #let-bindings;
+
+fn square(n : Nat) -> Nat {
+  return let n = succ(false) in succ(n)
+}

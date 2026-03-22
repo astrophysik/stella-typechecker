@@ -1,0 +1,7 @@
+language core;
+
+extend with #sum-types, #unit-type, #let-bindings;
+
+fn main(input : Bool) -> Nat + Unit {
+  return let v = inl(0) in v
+}

@@ -37,6 +37,8 @@ library:
   source-dirs: src
   dependencies:
     - array
+    - unordered-containers
+    - containers
 
 executables:
   typechecker-exe:
@@ -47,6 +49,7 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - optparse-applicative
     - typechecker
 
 tests:
@@ -58,4 +61,5 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - hspec
     - typechecker

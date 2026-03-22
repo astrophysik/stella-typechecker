@@ -1,0 +1,7 @@
+language core;
+
+extend with #sum-types, #let-bindings, #lists, #type-ascriptions;
+
+fn main(input : Bool) -> Bool {
+  return List::isempty([0])
+}

@@ -1,0 +1,7 @@
+language core;
+extend with #pairs;
+
+
+fn main(n : Nat) -> {Nat, Bool} {
+  return {n, false}
+}

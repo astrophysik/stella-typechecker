@@ -1,0 +1,11 @@
+language core;
+
+fn Nat::add(n : Nat) -> (fn(Nat) -> Nat) {
+  return fn(m : Nat) {
+    return Nat::rec(n, m, false)
+  }
+}
+
+fn main(n : Nat) -> Nat {
+  return Nat::add(n)(succ(succ(0)))
+}

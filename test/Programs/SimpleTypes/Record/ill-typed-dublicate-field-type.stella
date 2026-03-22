@@ -1,0 +1,7 @@
+language core;
+
+extend with #records;
+
+fn main(n : Nat) -> {current : Nat, current : Nat} {
+  return { current = n, current = n}.current
+}
