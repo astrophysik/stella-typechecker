@@ -5,6 +5,8 @@ import Parsing.LexSyntax (tokens)
 import Parsing.ParSyntax (pProgram)
 import TypeCheck.TypeCheck (typeCheck)
 import System.IO (hPutStrLn, stderr)
+import System.Exit (exitFailure)
+
 
 data Options = Options
   {inputFile :: Maybe FilePath, parseOnly :: Bool}
@@ -37,5 +39,7 @@ main = do
       if parseOnly opts
         then print ast
         else case typeCheck ast of
-          Left msg -> hPutStrLn stderr msg
+          Left msg -> do 
+            hPutStrLn stderr msg
+            exitFailure
           Right () -> putStrLn "Input program is well-typed!\n"
