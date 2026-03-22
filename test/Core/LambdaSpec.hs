@@ -8,6 +8,8 @@ spec :: Spec
 spec = describe "lambda tests" $ do
   it "lambda app" $ do
     shouldTypecheckFile "test/Programs/Core/Lambda/lambda-app.stella"
+  it "lambda app with var shadowing" $ do
+    shouldTypecheckFile "test/Programs/Core/Lambda/lambda-var-shadowing.stella"
   it "ill typed app" $ do
     shouldFailFileWith "test/Programs/Core/Lambda/ill-typed-app.stella" notAFunction
   it "ill typed undefined var" $ do
