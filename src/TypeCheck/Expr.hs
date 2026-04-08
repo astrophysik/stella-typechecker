@@ -200,11 +200,11 @@ checkTypeExpression :: Context -> AbsSyntax.Expr -> AbsSyntax.Type -> Either Str
 -- T-False
 checkTypeExpression _ AbsSyntax.ConstFalse expectedType = case expectedType of
   AbsSyntax.TypeBool -> Right ()
-  _ -> Left unexpectedTypeForExpression
+  _ -> Left $ formatUnexpectedTypeForExpressionMsg AbsSyntax.TypeBool expectedType AbsSyntax.ConstFalse
 -- T-True
 checkTypeExpression _ AbsSyntax.ConstTrue expectedType = case expectedType of
   AbsSyntax.TypeBool -> Right ()
-  _ -> Left unexpectedTypeForExpression
+  _ -> Left $ formatUnexpectedTypeForExpressionMsg AbsSyntax.TypeBool expectedType AbsSyntax.ConstTrue
 -- T-If
 checkTypeExpression context (AbsSyntax.If condition onTrue onFalse) expectedType = do
   checkTypeExpression context condition AbsSyntax.TypeBool
@@ -213,21 +213,21 @@ checkTypeExpression context (AbsSyntax.If condition onTrue onFalse) expectedType
   pure ()
 -- Integer expressions
 -- T-Zero
-checkTypeExpression _ (AbsSyntax.ConstInt _) expectedType = case expectedType of
+checkTypeExpression _ expr@(AbsSyntax.ConstInt _) expectedType = case expectedType of
   AbsSyntax.TypeNat -> Right ()
-  _ -> Left unexpectedTypeForExpression
+  _ -> Left $ formatUnexpectedTypeForExpressionMsg AbsSyntax.TypeNat expectedType expr
 -- T-Succ
-checkTypeExpression context (AbsSyntax.Succ integer) expectedType = case expectedType of
+checkTypeExpression context expr@(AbsSyntax.Succ integer) expectedType = case expectedType of
   AbsSyntax.TypeNat -> checkTypeExpression context integer AbsSyntax.TypeNat
-  _ -> Left unexpectedTypeForExpression
+  _ -> Left $ formatUnexpectedTypeForExpressionMsg AbsSyntax.TypeNat expectedType expr
 -- T-Pred
-checkTypeExpression context (AbsSyntax.Pred integer) expectedType = case expectedType of
+checkTypeExpression context expr@(AbsSyntax.Pred integer) expectedType = case expectedType of
   AbsSyntax.TypeNat -> checkTypeExpression context integer AbsSyntax.TypeNat
-  _ -> Left unexpectedTypeForExpression
+  _ -> Left $ formatUnexpectedTypeForExpressionMsg AbsSyntax.TypeNat expectedType expr
 -- T-IsZero
-checkTypeExpression context (AbsSyntax.IsZero integer) expectedType = case expectedType of
+checkTypeExpression context expr@(AbsSyntax.IsZero integer) expectedType = case expectedType of
   AbsSyntax.TypeBool -> checkTypeExpression context integer AbsSyntax.TypeNat
-  _ -> Left unexpectedTypeForExpression
+  _ -> Left $ formatUnexpectedTypeForExpressionMsg AbsSyntax.TypeBool expectedType expr
 -- T-Rec
 checkTypeExpression context (AbsSyntax.NatRec n z s) expectedType = do
   checkTypeExpression context n AbsSyntax.TypeNat
@@ -238,7 +238,7 @@ checkTypeExpression context (AbsSyntax.NatRec n z s) expectedType = do
 -- T-Var
 checkTypeExpression context var@(AbsSyntax.Var _) expectedType = do
   varType <- inferTypeExpression context var
-  if varType == expectedType then Right () else Left unexpectedTypeForExpression
+  if varType == expectedType then Right () else Left $ formatUnexpectedTypeForExpressionMsg varType expectedType var
 -- T-Abs
 checkTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl varIdent@(AbsSyntax.StellaIdent varName) varType] body) (AbsSyntax.TypeFun [paramType] resultType) =
   if varType == paramType
@@ -251,41 +251,45 @@ checkTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl varIden
           pure ()
       )
     else
-      Left unexpectedTypeForParam
-checkTypeExpression _ (AbsSyntax.Abstraction _ _) _ = Left unexpectedLambda
+      Left $ unexpectedTypeForParam ++ "\nexpected type\n\t" ++ show paramType ++ "\nbut got\n\t" ++ show varType ++ "\nfor param " ++ show varIdent
+checkTypeExpression _ expr@(AbsSyntax.Abstraction _ _) expectedType = Left $ unexpectedLambda 
+  ++ "\nExpected an expression of a non-function type\n\t" ++ show expectedType ++ "\nbut got an anonymous function\n\t" ++ show expr
 -- T-App
-checkTypeExpression context (AbsSyntax.Application function [argument]) expectedType = do
+checkTypeExpression context expr@(AbsSyntax.Application function [argument]) expectedType = do
   functionType <- inferTypeExpression context function
   case functionType of
     (AbsSyntax.TypeFun [paramType] resultType) -> do
       checkTypeExpression context argument paramType
-      if resultType == expectedType then pure () else Left unexpectedTypeForExpression
-    _ -> Left notAFunction
+      if resultType == expectedType then pure () else Left $ formatUnexpectedTypeForExpressionMsg resultType expectedType expr
+    _ -> Left $ notAFunction ++ "\nexpected a function type but got\n\t" ++ show functionType ++ "\nfor the expression\n\t" ++ show function ++ "\nin the function call\n\t" ++ show expr
 -- Unit expr
 -- T-unit
-checkTypeExpression _ AbsSyntax.ConstUnit expectedType = if expectedType == AbsSyntax.TypeUnit then Right () else Left unexpectedTypeForExpression
+checkTypeExpression _ AbsSyntax.ConstUnit expectedType = if expectedType == AbsSyntax.TypeUnit then Right () else Left $ formatUnexpectedTypeForExpressionMsg AbsSyntax.TypeUnit expectedType AbsSyntax.ConstUnit
 -- Tuple expr
 -- T-Tuple
-checkTypeExpression context (AbsSyntax.Tuple elements) expectedType = do
+checkTypeExpression context expr@(AbsSyntax.Tuple elements) expectedType = do
   case expectedType of
     (AbsSyntax.TypeTuple elementsType) ->
       if length elements /= length elementsType
-        then Left unexpectedTupleLength
+        then Left $ unexpectedTupleLength ++ "\nexpected " ++ show (length elementsType) 
+          ++ " components\n\t" ++ show expectedType ++ "\nbut got " ++ show (length elements) ++ "\n\t" ++ show expr 
         else do
           Control.Monad.zipWithM_ (checkTypeExpression context) elements elementsType
-    _ -> Left unexpectedTuple
+    _ -> Left $ unexpectedTuple ++ "\nexpected an expression of a non-tuple type\n\t" ++ show expectedType ++ "\nbut got a tuple\n\t" ++ show expr
 -- T-Proj
-checkTypeExpression context (AbsSyntax.DotTuple tuple n) expectedType = do
+checkTypeExpression context expr@(AbsSyntax.DotTuple tuple n) expectedType = do
   tupleType <- inferTypeExpression context tuple
   case tupleType of
     (AbsSyntax.TypeTuple elementsType) ->
       case nthElement n elementsType of
-        Nothing -> Left tupleIndexOutOfBounds
-        Just typeNth -> if expectedType == typeNth then Right () else Left unexpectedTypeForExpression
-    _ -> Left notATuple
+        Nothing -> Left $ tupleIndexOutOfBounds ++ "\nunexpected access to component number " ++ show n ++ "\nin a tuple\n\t" ++ show tuple
+         ++ "\nof length " ++ show (length elementsType)
+        Just typeNth -> if expectedType == typeNth then Right () else Left $ formatUnexpectedTypeForExpressionMsg typeNth expectedType expr
+    _ -> Left $ notATuple ++ "\nexpected an expression of tuple type\nbut got expression\n\t" ++ show tuple ++ "\n of type\n\t"
+     ++ show tupleType ++ "\nin expression\n\t" ++ show expr
 -- Record expr
 -- T-Record
-checkTypeExpression context (AbsSyntax.Record bindings) expectedType =
+checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType =
   case expectedType of
     AbsSyntax.TypeRecord bindingsType -> do
       let exprMap :: M.Map AbsSyntax.StellaIdent AbsSyntax.Expr
@@ -307,25 +311,27 @@ checkTypeExpression context (AbsSyntax.Record bindings) expectedType =
 
       let extraInExpr = S.difference exprKeys typeKeys
       if not (S.null extraInExpr)
-        then Left unexpectedRecordFields
+        then Left $ unexpectedRecordFields ++ "\nunexpected fields\n\t" ++ show extraInExpr ++ "\nfor an expected record of type\n\t"
+         ++ show expectedType ++ "\nin the record\n\t" ++ show recordExpr
         else do
           let extraInType = S.difference typeKeys exprKeys
           if not (S.null extraInType)
-            then Left missingRecordFields
+            then Left $ missingRecordFields ++ "\nmissing fields\n\t" ++ show extraInType ++ "\nfor an expected record type\n\t" 
+              ++ show expectedType ++ "\nin the record\n\t" ++ show recordExpr
             else do
               forM_ (M.toList exprMap) $ \(ident, expr) ->
                 case M.lookup ident typeMap of
-                  Nothing -> Left "impossible"
+                  Nothing -> Left "Typechecker internal error : missing ident in typeMap"
                   Just ty -> checkTypeExpression context expr ty
-    _ -> Left unexpectedRecord
+    _ -> Left $ unexpectedRecord ++ "\nexpected an expression of a non-record type\n\t" ++ show expectedType ++ "\nbut got a record\n\t" ++ show recordExpr
 -- T-Record-Proj
-checkTypeExpression context (AbsSyntax.DotRecord record ident) expectedType = do
+checkTypeExpression context expr@(AbsSyntax.DotRecord record ident) expectedType = do
   recordType <- inferTypeExpression context record
   case recordType of
     (AbsSyntax.TypeRecord bindings) -> case Data.List.find (\(AbsSyntax.ARecordFieldType fieldName _) -> fieldName == ident) bindings of
-      Nothing -> Left unexpectedFieldAccess
+      Nothing -> Left $ unexpectedFieldAccess ++ "\nunexpected access to field some in a record of type\n\t" ++ show recordType ++ "\nin the expression\n\t" ++ show expr
       Just (AbsSyntax.ARecordFieldType _ fieldType) -> if fieldType == expectedType then Right () else Left unexpectedTypeForExpression
-    _ -> Left notARecord
+    _ -> Left $ notARecord ++ "\nexpected a record type but got\n\t" ++ show recordType ++ "\nfor the expression\n\t" ++ show record ++ "\nin the expression\n\t" ++ show expr
 -- Let bindings
 -- T-Let
 checkTypeExpression content (AbsSyntax.Let bindings expr) expectedType = do
@@ -333,7 +339,7 @@ checkTypeExpression content (AbsSyntax.Let bindings expr) expectedType = do
     [AbsSyntax.APatternBinding (AbsSyntax.PatternVar (AbsSyntax.StellaIdent name)) value] -> do
       valueType <- inferTypeExpression content value
       checkTypeExpression (HM.insert name valueType content) expr expectedType
-    _ -> Left "let with several arguments is unsupported"
+    _ -> Left "Typechecker internal error : let with several arguments is unsupported"
 -- Type Ascriptions
 checkTypeExpression context (AbsSyntax.TypeAsc expr exprType) expectedType = do
   checkTypeExpression context expr exprType
