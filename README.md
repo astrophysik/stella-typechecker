@@ -48,20 +48,6 @@ main = do
             Right () -> putStrLn "Well-typed!"
 ```
 
-## Project Structure
-
-```
-app/Main.hs              # CLI entry point
-src/
-  Parsing/               # Generated parser/lexer
-    AbsSyntax.hs         # AST definitions
-    LexSyntax.hs         # Lexer
-    ParSyntax.hs         # Parser
-  TypeCheck/
-    TypeCheck.hs         # Typechecking logic
-test/                    # Test suite
-```
-
 ## Testing
 
 ```bash
