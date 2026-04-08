@@ -330,7 +330,7 @@ checkTypeExpression context expr@(AbsSyntax.DotRecord record ident) expectedType
   case recordType of
     (AbsSyntax.TypeRecord bindings) -> case Data.List.find (\(AbsSyntax.ARecordFieldType fieldName _) -> fieldName == ident) bindings of
       Nothing -> Left $ unexpectedFieldAccess ++ "\nunexpected access to field some in a record of type\n\t" ++ show recordType ++ "\nin the expression\n\t" ++ show expr
-      Just (AbsSyntax.ARecordFieldType _ fieldType) -> if fieldType == expectedType then Right () else Left unexpectedTypeForExpression
+      Just (AbsSyntax.ARecordFieldType _ fieldType) -> if fieldType == expectedType then Right () else Left $ formatUnexpectedTypeForExpressionMsg fieldType expectedType expr
     _ -> Left $ notARecord ++ "\nexpected a record type but got\n\t" ++ show recordType ++ "\nfor the expression\n\t" ++ show record ++ "\nin the expression\n\t" ++ show expr
 -- Let bindings
 -- T-Let
@@ -341,20 +341,20 @@ checkTypeExpression content (AbsSyntax.Let bindings expr) expectedType = do
       checkTypeExpression (HM.insert name valueType content) expr expectedType
     _ -> Left "Typechecker internal error : let with several arguments is unsupported"
 -- Type Ascriptions
-checkTypeExpression context (AbsSyntax.TypeAsc expr exprType) expectedType = do
+checkTypeExpression context typeAscExpr@(AbsSyntax.TypeAsc expr exprType) expectedType = do
   checkTypeExpression context expr exprType
-  if expectedType == exprType then Right () else Left unexpectedTypeForExpression
+  if expectedType == exprType then Right () else Left $ formatUnexpectedTypeForExpressionMsg exprType expectedType typeAscExpr
 -- Type Sum
 -- T-inl
-checkTypeExpression context (AbsSyntax.Inl inlExpr) expectedType =
+checkTypeExpression context expr@(AbsSyntax.Inl inlExpr) expectedType =
   case expectedType of
     (AbsSyntax.TypeSum inlType _) -> checkTypeExpression context inlExpr inlType
-    _ -> Left unexpectedInjection
+    _ -> Left $ unexpectedInjection ++ "\nexpected an expression of a non-sum type\n\t" ++ show expectedType ++ "\nbut got an injection into a sum type\n\t" ++ show expr
 -- T-inr
-checkTypeExpression context (AbsSyntax.Inr inrExpr) expectedType =
+checkTypeExpression context expr@(AbsSyntax.Inr inrExpr) expectedType =
   case expectedType of
     (AbsSyntax.TypeSum _ inrType) -> checkTypeExpression context inrExpr inrType
-    _ -> Left unexpectedInjection
+    _ -> Left $ unexpectedInjection ++ "\nexpected an expression of a non-sum type\n\t" ++ show expectedType ++ "\nbut got an injection into a sum type\n\t" ++ show expr
 -- T-Case
 checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
   exprType <- inferTypeExpression context expr
