@@ -26,6 +26,9 @@ module TypeCheck.Errors
     dublicateRecordTypeFields,
     ambiguousSumType,
     unexpectedTupleLength,
+    unexpectedVariant,
+    unexpectedVariantLabel,
+    duplicateVariantLabels,
     formatUnexpectedTypeForExpressionMsg,
   )
 where
@@ -76,6 +79,15 @@ unexpectedRecordFields = "ERROR_UNEXPECTED_RECORD_FIELDS"
 
 ambiguousVariantType :: String
 ambiguousVariantType = "ERROR_AMBIGUOUS_VARIANT_TYPE"
+
+unexpectedVariant :: String
+unexpectedVariant = "ERROR_UNEXPECTED_VARIANT"
+
+unexpectedVariantLabel :: String
+unexpectedVariantLabel = "ERROR_UNEXPECTED_VARIANT_LABEL"
+
+duplicateVariantLabels :: String
+duplicateVariantLabels = "ERROR_DUPLICATE_VARIANT_TYPE_FIELDS"
 
 illegalEmptyMatching :: String
 illegalEmptyMatching = "ERROR_ILLEGAL_EMPTY_MATCHING"

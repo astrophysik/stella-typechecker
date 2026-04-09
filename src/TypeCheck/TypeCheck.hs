@@ -28,6 +28,9 @@ module TypeCheck.TypeCheck
     dublicateRecordTypeFields,
     ambiguousSumType,
     unexpectedTupleLength,
+    unexpectedVariant,
+    unexpectedVariantLabel,
+    duplicateVariantLabels,
     -- * Context
     Context,
     emptyContext,
@@ -77,6 +80,9 @@ import TypeCheck.Errors
     unexpectedTypeForExpression,
     unexpectedTypeForParam,
     undefinedVariable,
+    unexpectedVariant,
+    unexpectedVariantLabel,
+    duplicateVariantLabels,
   )
 import TypeCheck.Expr (inferTypeExpression, checkTypeExpression)
 import qualified Data.HashMap.Strict as HM

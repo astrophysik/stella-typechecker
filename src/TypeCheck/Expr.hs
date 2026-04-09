@@ -14,6 +14,69 @@ import qualified Parsing.AbsSyntax as AbsSyntax
 import TypeCheck.Common (Context, extendContext, hasDuplicateBy, nthElement)
 import TypeCheck.Errors
 
+inferVariantCase :: Context -> M.Map AbsSyntax.StellaIdent AbsSyntax.OptionalTyping -> AbsSyntax.MatchCase -> Either String AbsSyntax.Type
+inferVariantCase context fieldMap matchCase@(AbsSyntax.AMatchCase matchPattern expr) =
+  case matchPattern of
+    (AbsSyntax.PatternVariant label (AbsSyntax.SomePatternData pat)) ->
+      case M.lookup label fieldMap of
+        Nothing -> Left $ unexpectedVariantLabel ++ "\nunexpected label\n\t" ++ show label ++ "\nin match case\n\t" ++ show matchCase
+        Just (AbsSyntax.SomeTyping expectedType) -> do
+          case pat of
+            (AbsSyntax.PatternVar (AbsSyntax.StellaIdent varName)) ->
+              inferTypeExpression (HM.insert varName expectedType context) expr
+            AbsSyntax.PatternUnit ->
+              inferTypeExpression context expr
+            _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show pat ++ "\nwhen pattern matching is expected for type\n\t" ++ show expectedType
+        Just AbsSyntax.NoTyping -> Left $ unexpectedVariantLabel ++ "\nlabel " ++ show label ++ " expects no data but pattern has data"
+    (AbsSyntax.PatternVariant label AbsSyntax.NoPatternData) ->
+      case M.lookup label fieldMap of
+        Nothing -> Left $ unexpectedVariantLabel ++ "\nunexpected label\n\t" ++ show label
+        Just AbsSyntax.NoTyping -> inferTypeExpression context expr
+        Just (AbsSyntax.SomeTyping _) -> Left $ unexpectedVariantLabel ++ "\nlabel " ++ show label ++ " expects data but pattern has none"
+    _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show matchPattern
+
+checkVariantCase :: Context -> M.Map AbsSyntax.StellaIdent AbsSyntax.OptionalTyping -> AbsSyntax.MatchCase -> AbsSyntax.Type -> Either String ()
+checkVariantCase context fieldMap (AbsSyntax.AMatchCase matchPattern expr) expectedType =
+  case matchPattern of
+    (AbsSyntax.PatternVariant label (AbsSyntax.SomePatternData pat)) ->
+      case M.lookup label fieldMap of
+        Nothing -> Left $ unexpectedVariantLabel ++ "\nunexpected label\n\t" ++ show label
+        Just (AbsSyntax.SomeTyping varType) ->
+          case pat of
+            (AbsSyntax.PatternVar (AbsSyntax.StellaIdent varName)) ->
+              checkTypeExpression (HM.insert varName varType context) expr expectedType
+            AbsSyntax.PatternUnit ->
+              checkTypeExpression context expr expectedType
+            _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show pat ++ "\nwhen pattern matching is expected for type\n\t" ++ show varType
+        Just AbsSyntax.NoTyping -> Left unexpectedVariantLabel
+    (AbsSyntax.PatternVariant label AbsSyntax.NoPatternData) ->
+      case M.lookup label fieldMap of
+        Nothing -> Left $ unexpectedVariantLabel ++ "\nunexpected label\n\t" ++ show label
+        Just AbsSyntax.NoTyping -> checkTypeExpression context expr expectedType
+        Just (AbsSyntax.SomeTyping _) -> Left unexpectedVariantLabel
+    _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show matchPattern
+
+checkVariantMatchCase :: Context -> M.Map AbsSyntax.StellaIdent AbsSyntax.OptionalTyping -> AbsSyntax.Type -> AbsSyntax.MatchCase -> Either String ()
+checkVariantMatchCase context fieldMap expectedType (AbsSyntax.AMatchCase matchPattern expr) =
+  case matchPattern of
+    (AbsSyntax.PatternVariant label (AbsSyntax.SomePatternData pat)) ->
+      case M.lookup label fieldMap of
+        Nothing -> Left $ unexpectedVariantLabel ++ "\nunexpected label\n\t" ++ show label
+        Just (AbsSyntax.SomeTyping varType) ->
+          case pat of
+            (AbsSyntax.PatternVar (AbsSyntax.StellaIdent varName)) ->
+              checkTypeExpression (HM.insert varName varType context) expr expectedType
+            AbsSyntax.PatternUnit ->
+              checkTypeExpression context expr expectedType
+            _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show pat ++ "\nwhen pattern matching is expected for type\n\t" ++ show varType
+        Just AbsSyntax.NoTyping -> Left unexpectedVariantLabel
+    (AbsSyntax.PatternVariant label AbsSyntax.NoPatternData) ->
+      case M.lookup label fieldMap of
+        Nothing -> Left $ unexpectedVariantLabel ++ "\nunexpected label\n\t" ++ show label
+        Just AbsSyntax.NoTyping -> checkTypeExpression context expr expectedType
+        Just (AbsSyntax.SomeTyping _) -> Left unexpectedVariantLabel
+    _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show matchPattern
+
 -- Type infer
 inferTypeExpression :: Context -> AbsSyntax.Expr -> Either String AbsSyntax.Type
 -- Boolean expressions
@@ -127,6 +190,8 @@ inferTypeExpression context (AbsSyntax.TypeAsc expr exprType) = do
 inferTypeExpression _ (AbsSyntax.Inl _) = Left ambiguousSumType
 -- T-inr
 inferTypeExpression _ (AbsSyntax.Inr _) = Left ambiguousSumType
+-- T-Variant
+inferTypeExpression _ (AbsSyntax.Variant _ _) = Left $ ambiguousVariantType ++ "\ntype inference for variants is not supported"
 -- T-Case
 inferTypeExpression context (AbsSyntax.Match expr matchCases) = do
   exprType <- inferTypeExpression context expr
@@ -139,9 +204,23 @@ inferTypeExpression context (AbsSyntax.Match expr matchCases) = do
         AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
         ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
       [] -> Left illegalEmptyMatching
-      [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left nonExhaustiveMatchPatterns
-      [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left nonExhaustiveMatchPatterns
+      [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinr"
+      [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinl"
       _ -> Left unepxectedPatternForType
+    (AbsSyntax.TypeVariant variantFields) -> do
+      let fieldMap = M.fromList [(label, optType) | AbsSyntax.AVariantFieldType label optType <- variantFields]
+      case matchCases of
+        [] -> Left illegalEmptyMatching
+        (firstCase : restCase) -> do
+          firstExprType <- inferVariantCase context fieldMap firstCase
+          mapM_ (\c -> checkVariantCase context fieldMap c firstExprType) restCase
+
+          let coveredLabels = S.fromList [label | AbsSyntax.AMatchCase (AbsSyntax.PatternVariant label _) _ <- matchCases]
+          let allLabels = M.keysSet fieldMap
+          let missingLabels = S.difference allLabels coveredLabels
+          if not (S.null missingLabels) 
+            then Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\t" ++ show missingLabels
+            else pure firstExprType
     _ -> Left unexpectedTypeForExpression
   where
     inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do
@@ -355,6 +434,29 @@ checkTypeExpression context expr@(AbsSyntax.Inr inrExpr) expectedType =
   case expectedType of
     (AbsSyntax.TypeSum _ inrType) -> checkTypeExpression context inrExpr inrType
     _ -> Left $ unexpectedInjection ++ "\nexpected an expression of a non-sum type\n\t" ++ show expectedType ++ "\nbut got an injection into a sum type\n\t" ++ show expr
+-- T-Variant
+checkTypeExpression context variantExpr@(AbsSyntax.Variant ident exprData) expectedType =
+  case expectedType of
+    (AbsSyntax.TypeVariant variantFields) -> do
+      when (hasDuplicateBy (\(AbsSyntax.AVariantFieldType lhs _) (AbsSyntax.AVariantFieldType rhs _) -> lhs == rhs) variantFields) $
+        Left $ duplicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show expectedType
+      let fieldMap = M.fromList
+            [ (label, optType)
+             | AbsSyntax.AVariantFieldType label optType <- variantFields
+           ]
+      case M.lookup ident fieldMap of
+        Nothing -> Left $ unexpectedVariantLabel ++ "\nunexpected label\n\t" ++ show ident
+         ++ "\nin variant type\n\t" ++ show expectedType ++ "\nin variant expression\n\t" ++ show variantExpr
+        Just (AbsSyntax.SomeTyping expectedFieldType) ->
+          case exprData of
+            AbsSyntax.SomeExprData expr -> checkTypeExpression context expr expectedFieldType
+            AbsSyntax.NoExprData -> Left $ unexpectedVariantLabel ++ "\nlabel " ++ show ident ++ " expects data but none provided"
+        Just AbsSyntax.NoTyping ->
+          case exprData of
+            AbsSyntax.NoExprData -> Right () 
+            AbsSyntax.SomeExprData _ -> Left $ unexpectedVariantLabel ++ "\nlabel " ++ show ident ++ " expects no data but data provided"
+    _ -> Left $ unexpectedVariant ++ "\nexpected an expression of a non-variant type\n\t" ++ show expectedType ++ "\nbut got a variant\n\t" ++ show variantExpr
+
 -- T-Case
 checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
   exprType <- inferTypeExpression context expr
@@ -367,9 +469,21 @@ checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
         AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
         ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
       [] -> Left illegalEmptyMatching
-      [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left nonExhaustiveMatchPatterns
-      [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left nonExhaustiveMatchPatterns
+      [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinr"
+      [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinl"
       _ -> Left unepxectedPatternForType
+    (AbsSyntax.TypeVariant variantFields) -> do
+      when (hasDuplicateBy (\(AbsSyntax.AVariantFieldType lhs _) (AbsSyntax.AVariantFieldType rhs _) -> lhs == rhs) variantFields) $
+        Left $ duplicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show exprType
+      let fieldMap = M.fromList [ (label, optType) | AbsSyntax.AVariantFieldType label optType <- variantFields]
+      mapM_ (checkVariantMatchCase context fieldMap expectedType) matchCases
+
+      let coveredLabels = S.fromList [ label | AbsSyntax.AMatchCase (AbsSyntax.PatternVariant label _) _ <- matchCases]
+      let allLabels = M.keysSet fieldMap
+      let missingLabels = S.difference allLabels coveredLabels
+      if not (S.null missingLabels)
+        then Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\t" ++ show missingLabels
+        else Right ()
     _ -> Left unepxectedPatternForType
   where
     inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do

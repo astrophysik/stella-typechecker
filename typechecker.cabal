@@ -82,6 +82,7 @@ test-suite typechecker-test
       SimpleTypes.SumTypesSpec
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec
+      SimpleTypes.VariantSpec
       TestUtil
       Paths_typechecker
   autogen-modules:
