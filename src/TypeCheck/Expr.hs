@@ -128,7 +128,7 @@ inferTypeExpression context (AbsSyntax.Application function [argument]) = do
   case functionType of
     (AbsSyntax.TypeFun [varType] bodyType) -> do
       case checkTypeExpression context argument varType of
-        Left _ -> Left unexpectedTypeForParam
+        Left msg -> Left msg
         Right _ -> pure bodyType
     _ -> Left notAFunction
 inferTypeExpression _ (AbsSyntax.Application _ []) = Left "unsupported apply function with zero arguments"
@@ -218,7 +218,7 @@ inferTypeExpression context (AbsSyntax.Match expr matchCases) = do
           let coveredLabels = S.fromList [label | AbsSyntax.AMatchCase (AbsSyntax.PatternVariant label _) _ <- matchCases]
           let allLabels = M.keysSet fieldMap
           let missingLabels = S.difference allLabels coveredLabels
-          if not (S.null missingLabels) 
+          if not (S.null missingLabels)
             then Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\t" ++ show missingLabels
             else pure firstExprType
     _ -> Left unexpectedTypeForExpression
@@ -331,8 +331,13 @@ checkTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl varIden
       )
     else
       Left $ unexpectedTypeForParam ++ "\nexpected type\n\t" ++ show paramType ++ "\nbut got\n\t" ++ show varType ++ "\nfor param " ++ show varIdent
-checkTypeExpression _ expr@(AbsSyntax.Abstraction _ _) expectedType = Left $ unexpectedLambda 
-  ++ "\nExpected an expression of a non-function type\n\t" ++ show expectedType ++ "\nbut got an anonymous function\n\t" ++ show expr
+checkTypeExpression _ expr@(AbsSyntax.Abstraction _ _) expectedType =
+  Left $
+    unexpectedLambda
+      ++ "\nExpected an expression of a non-function type\n\t"
+      ++ show expectedType
+      ++ "\nbut got an anonymous function\n\t"
+      ++ show expr
 -- T-App
 checkTypeExpression context expr@(AbsSyntax.Application function [argument]) expectedType = do
   functionType <- inferTypeExpression context function
@@ -350,8 +355,17 @@ checkTypeExpression context expr@(AbsSyntax.Tuple elements) expectedType = do
   case expectedType of
     (AbsSyntax.TypeTuple elementsType) ->
       if length elements /= length elementsType
-        then Left $ unexpectedTupleLength ++ "\nexpected " ++ show (length elementsType) 
-          ++ " components\n\t" ++ show expectedType ++ "\nbut got " ++ show (length elements) ++ "\n\t" ++ show expr 
+        then
+          Left $
+            unexpectedTupleLength
+              ++ "\nexpected "
+              ++ show (length elementsType)
+              ++ " components\n\t"
+              ++ show expectedType
+              ++ "\nbut got "
+              ++ show (length elements)
+              ++ "\n\t"
+              ++ show expr
         else do
           Control.Monad.zipWithM_ (checkTypeExpression context) elements elementsType
     _ -> Left $ unexpectedTuple ++ "\nexpected an expression of a non-tuple type\n\t" ++ show expectedType ++ "\nbut got a tuple\n\t" ++ show expr
@@ -361,11 +375,25 @@ checkTypeExpression context expr@(AbsSyntax.DotTuple tuple n) expectedType = do
   case tupleType of
     (AbsSyntax.TypeTuple elementsType) ->
       case nthElement n elementsType of
-        Nothing -> Left $ tupleIndexOutOfBounds ++ "\nunexpected access to component number " ++ show n ++ "\nin a tuple\n\t" ++ show tuple
-         ++ "\nof length " ++ show (length elementsType)
+        Nothing ->
+          Left $
+            tupleIndexOutOfBounds
+              ++ "\nunexpected access to component number "
+              ++ show n
+              ++ "\nin a tuple\n\t"
+              ++ show tuple
+              ++ "\nof length "
+              ++ show (length elementsType)
         Just typeNth -> if expectedType == typeNth then Right () else Left $ formatUnexpectedTypeForExpressionMsg typeNth expectedType expr
-    _ -> Left $ notATuple ++ "\nexpected an expression of tuple type\nbut got expression\n\t" ++ show tuple ++ "\n of type\n\t"
-     ++ show tupleType ++ "\nin expression\n\t" ++ show expr
+    _ ->
+      Left $
+        notATuple
+          ++ "\nexpected an expression of tuple type\nbut got expression\n\t"
+          ++ show tuple
+          ++ "\n of type\n\t"
+          ++ show tupleType
+          ++ "\nin expression\n\t"
+          ++ show expr
 -- Record expr
 -- T-Record
 checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType =
@@ -390,13 +418,27 @@ checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType 
 
       let extraInExpr = S.difference exprKeys typeKeys
       if not (S.null extraInExpr)
-        then Left $ unexpectedRecordFields ++ "\nunexpected fields\n\t" ++ show extraInExpr ++ "\nfor an expected record of type\n\t"
-         ++ show expectedType ++ "\nin the record\n\t" ++ show recordExpr
+        then
+          Left $
+            unexpectedRecordFields
+              ++ "\nunexpected fields\n\t"
+              ++ show extraInExpr
+              ++ "\nfor an expected record of type\n\t"
+              ++ show expectedType
+              ++ "\nin the record\n\t"
+              ++ show recordExpr
         else do
           let extraInType = S.difference typeKeys exprKeys
           if not (S.null extraInType)
-            then Left $ missingRecordFields ++ "\nmissing fields\n\t" ++ show extraInType ++ "\nfor an expected record type\n\t" 
-              ++ show expectedType ++ "\nin the record\n\t" ++ show recordExpr
+            then
+              Left $
+                missingRecordFields
+                  ++ "\nmissing fields\n\t"
+                  ++ show extraInType
+                  ++ "\nfor an expected record type\n\t"
+                  ++ show expectedType
+                  ++ "\nin the record\n\t"
+                  ++ show recordExpr
             else do
               forM_ (M.toList exprMap) $ \(ident, expr) ->
                 case M.lookup ident typeMap of
@@ -439,24 +481,32 @@ checkTypeExpression context variantExpr@(AbsSyntax.Variant ident exprData) expec
   case expectedType of
     (AbsSyntax.TypeVariant variantFields) -> do
       when (hasDuplicateBy (\(AbsSyntax.AVariantFieldType lhs _) (AbsSyntax.AVariantFieldType rhs _) -> lhs == rhs) variantFields) $
-        Left $ duplicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show expectedType
-      let fieldMap = M.fromList
-            [ (label, optType)
-             | AbsSyntax.AVariantFieldType label optType <- variantFields
-           ]
+        Left $
+          duplicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show expectedType
+      let fieldMap =
+            M.fromList
+              [ (label, optType)
+                | AbsSyntax.AVariantFieldType label optType <- variantFields
+              ]
       case M.lookup ident fieldMap of
-        Nothing -> Left $ unexpectedVariantLabel ++ "\nunexpected label\n\t" ++ show ident
-         ++ "\nin variant type\n\t" ++ show expectedType ++ "\nin variant expression\n\t" ++ show variantExpr
+        Nothing ->
+          Left $
+            unexpectedVariantLabel
+              ++ "\nunexpected label\n\t"
+              ++ show ident
+              ++ "\nin variant type\n\t"
+              ++ show expectedType
+              ++ "\nin variant expression\n\t"
+              ++ show variantExpr
         Just (AbsSyntax.SomeTyping expectedFieldType) ->
           case exprData of
             AbsSyntax.SomeExprData expr -> checkTypeExpression context expr expectedFieldType
             AbsSyntax.NoExprData -> Left $ unexpectedVariantLabel ++ "\nlabel " ++ show ident ++ " expects data but none provided"
         Just AbsSyntax.NoTyping ->
           case exprData of
-            AbsSyntax.NoExprData -> Right () 
+            AbsSyntax.NoExprData -> Right ()
             AbsSyntax.SomeExprData _ -> Left $ unexpectedVariantLabel ++ "\nlabel " ++ show ident ++ " expects no data but data provided"
     _ -> Left $ unexpectedVariant ++ "\nexpected an expression of a non-variant type\n\t" ++ show expectedType ++ "\nbut got a variant\n\t" ++ show variantExpr
-
 -- T-Case
 checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
   exprType <- inferTypeExpression context expr
@@ -474,11 +524,12 @@ checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
       _ -> Left unepxectedPatternForType
     (AbsSyntax.TypeVariant variantFields) -> do
       when (hasDuplicateBy (\(AbsSyntax.AVariantFieldType lhs _) (AbsSyntax.AVariantFieldType rhs _) -> lhs == rhs) variantFields) $
-        Left $ duplicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show exprType
-      let fieldMap = M.fromList [ (label, optType) | AbsSyntax.AVariantFieldType label optType <- variantFields]
+        Left $
+          duplicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show exprType
+      let fieldMap = M.fromList [(label, optType) | AbsSyntax.AVariantFieldType label optType <- variantFields]
       mapM_ (checkVariantMatchCase context fieldMap expectedType) matchCases
 
-      let coveredLabels = S.fromList [ label | AbsSyntax.AMatchCase (AbsSyntax.PatternVariant label _) _ <- matchCases]
+      let coveredLabels = S.fromList [label | AbsSyntax.AMatchCase (AbsSyntax.PatternVariant label _) _ <- matchCases]
       let allLabels = M.keysSet fieldMap
       let missingLabels = S.difference allLabels coveredLabels
       if not (S.null missingLabels)

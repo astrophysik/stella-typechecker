@@ -126,5 +126,5 @@ unexpectedTupleLength :: String
 unexpectedTupleLength = "ERROR_UNEXPECTED_TUPLE_LENGTH"
 
 formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
-formatUnexpectedTypeForExpressionMsg expectedType realType expression = unexpectedTypeForExpression ++
+formatUnexpectedTypeForExpressionMsg realType expectedType expression = unexpectedTypeForExpression ++
   "\nexpected type\n\t" ++ show expectedType ++ "\nbut got\n\t" ++ show realType ++ "\nwhen typechecking the expression\n\t" ++ show expression
