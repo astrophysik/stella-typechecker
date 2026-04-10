@@ -291,6 +291,13 @@ inferTypeExpression context (AbsSyntax.Fix function) = do
         then Right returnType
         else Left unexpectedTypeForExpression
     _ -> Left notAFunction
+-- sequence
+-- T-seq
+inferTypeExpression context (AbsSyntax.Sequence left right) = do
+  checkTypeExpression context left AbsSyntax.TypeUnit
+  resultType <- inferTypeExpression context right
+  validateType resultType
+  pure resultType
 inferTypeExpression _ expr = Left $ "Internal error : unsupported type inference for expr\n\t" ++ show expr
 
 -- Type check
@@ -616,6 +623,12 @@ checkTypeExpression context (AbsSyntax.Fix function) expectedType = do
         then Right ()
         else Left unexpectedTypeForExpression
     _ -> Left notAFunction
+-- sequence
+-- T-seq
+checkTypeExpression context (AbsSyntax.Sequence left right) expectedType = do
+  checkTypeExpression context left AbsSyntax.TypeUnit
+  checkTypeExpression context right expectedType
+-- default rule
 checkTypeExpression context expr expectedType = do
   exprType <- inferTypeExpression context expr
   if exprType == expectedType then pure () else Left $ formatUnexpectedTypeForExpressionMsg exprType expectedType expr
