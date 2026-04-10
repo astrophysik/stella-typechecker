@@ -334,6 +334,8 @@ inferTypeExpression context (AbsSyntax.Assign lhs rhs) = do
           ++ show lhsRefType
 -- T-loc
 inferTypeExpression _ (AbsSyntax.ConstMemory _) = Left $ ambiguousReferenceType ++ "\ncannot infer a type of a bare memory address"
+-- T-Error
+inferTypeExpression _ AbsSyntax.Panic = Left $ ambiguousPanicType ++ "\ncannot infer a type of a panic"
 inferTypeExpression _ expr = Left $ "Internal error : unsupported type inference for expr\n\t" ++ show expr
 
 -- Type check
@@ -707,6 +709,8 @@ checkTypeExpression _ (AbsSyntax.ConstMemory (AbsSyntax.MemoryAddress address)) 
           ++ show expectedType
           ++ "\nbut got a bare memory address\n\t"
           ++ show address
+-- T-Error
+checkTypeExpression _ AbsSyntax.Panic _ = pure ()
 -- default rule
 checkTypeExpression context expr expectedType = do
   exprType <- inferTypeExpression context expr

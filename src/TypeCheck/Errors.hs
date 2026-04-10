@@ -33,6 +33,7 @@ module TypeCheck.Errors
     unexpectedReferenceType,
     ambiguousReferenceType,
     unexpectedMemoryAddress,
+    ambiguousPanicType,
     formatUnexpectedTypeForExpressionMsg,
   )
 where
@@ -141,6 +142,15 @@ ambiguousReferenceType = "ERROR_AMBIGUOUS_REFERENCE_TYPE"
 unexpectedMemoryAddress :: String
 unexpectedMemoryAddress = "ERROR_UNEXPECTED_MEMORY_ADDRESS"
 
+ambiguousPanicType :: String
+ambiguousPanicType = "ERROR_AMBIGUOUS_PANIC_TYPE"
+
 formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
-formatUnexpectedTypeForExpressionMsg realType expectedType expression = unexpectedTypeForExpression ++
-  "\nexpected type\n\t" ++ show expectedType ++ "\nbut got\n\t" ++ show realType ++ "\nwhen typechecking the expression\n\t" ++ show expression
+formatUnexpectedTypeForExpressionMsg realType expectedType expression =
+  unexpectedTypeForExpression
+    ++ "\nexpected type\n\t"
+    ++ show expectedType
+    ++ "\nbut got\n\t"
+    ++ show realType
+    ++ "\nwhen typechecking the expression\n\t"
+    ++ show expression

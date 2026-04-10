@@ -78,6 +78,7 @@ test-suite typechecker-test
       DerivedForms.LetSpec
       DerivedForms.SequencingSpec
       DerivedForms.TypeAsc
+      Exceptions.PanicSpec
       References.ReferencesSpec
       SimpleTypes.ListSpec
       SimpleTypes.RecordSpec

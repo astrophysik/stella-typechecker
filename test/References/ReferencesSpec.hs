@@ -9,7 +9,6 @@ import TypeCheck.TypeCheck
     unexpectedReferenceType,
     unexpectedTypeForExpression
   )
-import TypeCheck.Errors (unexpectedMemoryAddress)
 
 spec :: Spec
 spec = describe "references tests" $ do

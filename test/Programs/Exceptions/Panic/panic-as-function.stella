@@ -1,0 +1,6 @@
+language core;
+extend with #panic, #function-type;
+
+fn main(n : Nat) -> fn(Nat) -> Nat {
+    return panic!
+}

@@ -14,6 +14,7 @@ import qualified SimpleTypes.SumTypesSpec
 import qualified SimpleTypes.ListSpec
 import qualified SimpleTypes.VariantSpec
 import qualified References.ReferencesSpec
+import qualified Exceptions.PanicSpec
 
 main :: IO ()
 main = hspec $ do
@@ -32,3 +33,4 @@ main = hspec $ do
   SimpleTypes.ListSpec.spec
   SimpleTypes.VariantSpec.spec
   References.ReferencesSpec.spec
+  Exceptions.PanicSpec.spec

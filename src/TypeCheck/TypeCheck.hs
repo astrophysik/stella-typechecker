@@ -35,6 +35,7 @@ module TypeCheck.TypeCheck
     unexpectedReferenceType,
     ambiguousReferenceType,
     unexpectedMemoryAddress,
+    ambiguousPanicType,
     -- * Context
     Context,
     emptyContext,
@@ -91,6 +92,7 @@ import TypeCheck.Errors
     unexpectedReferenceType,
     ambiguousReferenceType,
     unexpectedMemoryAddress,
+    ambiguousPanicType,
   )
 import TypeCheck.BidirectionalTyping (inferTypeExpression, checkTypeExpression)
 import qualified Data.HashMap.Strict as HM
