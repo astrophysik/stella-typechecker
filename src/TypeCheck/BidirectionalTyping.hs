@@ -228,7 +228,6 @@ inferTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) = do
         (firstCase : restCase) -> do
           firstExprType <- inferVariantCase context fieldMap firstCase
           mapM_ (\c -> checkVariantCase context fieldMap c firstExprType) restCase
-
           let coveredLabels = S.fromList [label | AbsSyntax.AMatchCase (AbsSyntax.PatternVariant label _) _ <- matchCases]
           let allLabels = M.keysSet fieldMap
           let missingLabels = S.difference allLabels coveredLabels
