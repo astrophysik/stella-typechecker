@@ -76,6 +76,7 @@ test-suite typechecker-test
       Decl.DeclSpec
       DerivedForms.FixPointSpec
       DerivedForms.LetSpec
+      DerivedForms.SequencingSpec
       DerivedForms.TypeAsc
       SimpleTypes.ListSpec
       SimpleTypes.RecordSpec
