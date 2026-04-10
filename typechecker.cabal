@@ -32,10 +32,10 @@ library
       Parsing.ParSyntax
       Parsing.PrintSyntax
       Parsing.SkelSyntax
+      TypeCheck.BidirectionalTyping
       TypeCheck.Common
       TypeCheck.Decl
       TypeCheck.Errors
-      TypeCheck.Expr
       TypeCheck.TypeCheck
   other-modules:
       Paths_typechecker

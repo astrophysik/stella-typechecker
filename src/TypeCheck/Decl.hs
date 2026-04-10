@@ -6,7 +6,7 @@ where
 
 import qualified Data.HashMap.Strict as HM
 import qualified Parsing.AbsSyntax as AbsSyntax
-import TypeCheck.Expr (checkTypeExpression)
+import TypeCheck.BidirectionalTyping (checkTypeExpression)
 import TypeCheck.Common (Context, extendContext)
 import TypeCheck.Errors (dublicateFunctionDeclaration, missingMain)
 

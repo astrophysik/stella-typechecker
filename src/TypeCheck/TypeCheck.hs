@@ -84,7 +84,7 @@ import TypeCheck.Errors
     unexpectedVariantLabel,
     duplicateVariantLabels,
   )
-import TypeCheck.Expr (inferTypeExpression, checkTypeExpression)
+import TypeCheck.BidirectionalTyping (inferTypeExpression, checkTypeExpression)
 import qualified Data.HashMap.Strict as HM
 import qualified Parsing.AbsSyntax as AbsSyntax
 

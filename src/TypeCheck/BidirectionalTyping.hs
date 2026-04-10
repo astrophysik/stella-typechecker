@@ -1,4 +1,4 @@
-module TypeCheck.Expr
+module TypeCheck.BidirectionalTyping
   ( inferTypeExpression,
     checkTypeExpression,
   )
@@ -115,7 +115,7 @@ inferTypeExpression context (AbsSyntax.NatRec n z s) = do
 -- T-Var
 inferTypeExpression context (AbsSyntax.Var (AbsSyntax.StellaIdent var)) = case HM.lookup var context of
   Just tValue -> Right tValue
-  Nothing -> Left undefinedVariable
+  Nothing -> Left $ undefinedVariable ++ "\nundefined variable " ++ show var
 -- T-Abs
 inferTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl (AbsSyntax.StellaIdent var) varType] body) = do
   bodyType <- inferTypeExpression (HM.insert var varType context) body
@@ -123,14 +123,14 @@ inferTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl (AbsSyn
 inferTypeExpression _ (AbsSyntax.Abstraction [] _) = Left "unsupported function with zero arguments"
 inferTypeExpression _ (AbsSyntax.Abstraction (_ : _ : _) _) = Left "unsupported function with several arguments"
 -- T-App
-inferTypeExpression context (AbsSyntax.Application function [argument]) = do
+inferTypeExpression context expr@(AbsSyntax.Application function [argument]) = do
   functionType <- inferTypeExpression context function
   case functionType of
     (AbsSyntax.TypeFun [varType] bodyType) -> do
       case checkTypeExpression context argument varType of
         Left msg -> Left msg
         Right _ -> pure bodyType
-    _ -> Left notAFunction
+    _ -> Left $ notAFunction ++ "\nexpected a function type but got\n\t" ++ show functionType ++ "\nfor the expression\n\t" ++ show function ++ "\nin the function call\n\t" ++ show expr
 inferTypeExpression _ (AbsSyntax.Application _ []) = Left "unsupported apply function with zero arguments"
 inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "unsupported apply function with several arguments"
 -- Unit expr
@@ -156,7 +156,7 @@ inferTypeExpression context (AbsSyntax.DotTuple tuple n) = do
 -- T-Record
 inferTypeExpression context (AbsSyntax.Record bindings) = do
   when (hasDuplicateBy (\(AbsSyntax.ABinding lhs _) (AbsSyntax.ABinding rhs _) -> lhs == rhs) bindings) $
-    Left dublicateRecordFields
+    Left $ dublicateRecordFields ++ "\nduplicate record fields\n\t" ++ show bindings
   bindingsType <-
     mapM
       ( \(AbsSyntax.ABinding ident expr) -> do
@@ -193,7 +193,7 @@ inferTypeExpression _ (AbsSyntax.Inr _) = Left ambiguousSumType
 -- T-Variant
 inferTypeExpression _ (AbsSyntax.Variant _ _) = Left $ ambiguousVariantType ++ "\ntype inference for variants is not supported"
 -- T-Case
-inferTypeExpression context (AbsSyntax.Match expr matchCases) = do
+inferTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) = do
   exprType <- inferTypeExpression context expr
   case exprType of
     (AbsSyntax.TypeSum leftType rightType) -> case matchCases of
@@ -203,10 +203,10 @@ inferTypeExpression context (AbsSyntax.Match expr matchCases) = do
       [ AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
         AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
         ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
-      [] -> Left illegalEmptyMatching
+      [] -> Left $ illegalEmptyMatching ++ "in expression\n\t" ++ show matchExpr
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinr"
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinl"
-      _ -> Left unepxectedPatternForType
+      matchPattern -> Left $ unepxectedPatternForType ++ "unexpected match pattern\n\t" ++ show matchPattern ++ "\nfor type\n\t" ++ show exprType
     (AbsSyntax.TypeVariant variantFields) -> do
       let fieldMap = M.fromList [(label, optType) | AbsSyntax.AVariantFieldType label optType <- variantFields]
       case matchCases of
@@ -221,7 +221,7 @@ inferTypeExpression context (AbsSyntax.Match expr matchCases) = do
           if not (S.null missingLabels)
             then Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\t" ++ show missingLabels
             else pure firstExprType
-    _ -> Left unexpectedTypeForExpression
+    _ -> Left $ unexpectedTypeForExpression ++ "\nexpected variant of sum-type in match but got\n\t" ++ show exprType ++ "\nin expression\n\t" ++ show matchExpr
   where
     inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do
       leftExprType <- inferTypeExpression (HM.insert leftVarName leftVarType context) leftExpr
@@ -242,7 +242,7 @@ inferTypeExpression _ (AbsSyntax.List []) = Left ambiguousList
 inferTypeExpression context (AbsSyntax.ConsList listHead listTail) = do
   headType <- inferTypeExpression context listHead
   checkTypeExpression context listTail (AbsSyntax.TypeList headType)
-  pure headType
+  pure $ AbsSyntax.TypeList headType
 -- T-IsNil
 inferTypeExpression context (AbsSyntax.IsEmpty list) = do
   listType <- inferTypeExpression context list
@@ -396,7 +396,9 @@ checkTypeExpression context expr@(AbsSyntax.DotTuple tuple n) expectedType = do
           ++ show expr
 -- Record expr
 -- T-Record
-checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType =
+checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType = do 
+  when (hasDuplicateBy (\(AbsSyntax.ABinding lhs _) (AbsSyntax.ABinding rhs _) -> lhs == rhs) bindings) $
+    Left $ dublicateRecordFields ++ "\nduplicate record fields\n\t" ++ show bindings
   case expectedType of
     AbsSyntax.TypeRecord bindingsType -> do
       let exprMap :: M.Map AbsSyntax.StellaIdent AbsSyntax.Expr
@@ -508,7 +510,7 @@ checkTypeExpression context variantExpr@(AbsSyntax.Variant ident exprData) expec
             AbsSyntax.SomeExprData _ -> Left $ unexpectedVariantLabel ++ "\nlabel " ++ show ident ++ " expects no data but data provided"
     _ -> Left $ unexpectedVariant ++ "\nexpected an expression of a non-variant type\n\t" ++ show expectedType ++ "\nbut got a variant\n\t" ++ show variantExpr
 -- T-Case
-checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
+checkTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) expectedType = do
   exprType <- inferTypeExpression context expr
   case exprType of
     (AbsSyntax.TypeSum leftType rightType) -> case matchCases of
@@ -524,10 +526,10 @@ checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
           checkTypeExpression (HM.insert rightName rightType context) rightExpr expectedType
           checkTypeExpression (HM.insert leftName leftType context) leftExpr expectedType
           pure ()
-      [] -> Left illegalEmptyMatching
+      [] -> Left $ illegalEmptyMatching ++ "in expression\n\t" ++ show matchExpr
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinr"
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinl"
-      _ -> Left unepxectedPatternForType
+      matchPattern -> Left $ unepxectedPatternForType ++ "unexpected match pattern\n\t" ++ show matchPattern ++ "\nfor type\n\t" ++ show exprType
     (AbsSyntax.TypeVariant variantFields) -> do
       when (hasDuplicateBy (\(AbsSyntax.AVariantFieldType lhs _) (AbsSyntax.AVariantFieldType rhs _) -> lhs == rhs) variantFields) $
         Left $
@@ -541,9 +543,9 @@ checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
       if not (S.null missingLabels)
         then Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\t" ++ show missingLabels
         else Right ()
-    _ -> Left unepxectedPatternForType
+    _ -> Left $ unexpectedTypeForExpression ++ "\nexpected variant of sum-type in match but got\n\t" ++ show exprType ++ "\nin expression\n\t" ++ show matchExpr
 -- List expressions
-checkTypeExpression context (AbsSyntax.List (h : t)) expectedType = case expectedType of
+checkTypeExpression context expr@(AbsSyntax.List (h : t)) expectedType = case expectedType of
   (AbsSyntax.TypeList typeElement) -> do
     checkTypeExpression context h typeElement
     mapM_
@@ -551,18 +553,18 @@ checkTypeExpression context (AbsSyntax.List (h : t)) expectedType = case expecte
           checkTypeExpression context element typeElement
       )
       t
-  _ -> Left unexpectedList
+  _ -> Left $ unexpectedList ++ "\nexpected type\n\t" ++ show expectedType ++ "\nbut got list expression\n\t" ++ show expr
 -- T-Nil
-checkTypeExpression context (AbsSyntax.List []) expectedType = case expectedType of
+checkTypeExpression _ expr@(AbsSyntax.List []) expectedType = case expectedType of
   (AbsSyntax.TypeList _) -> Right ()
-  _ -> Left unexpectedList
+  _ -> Left $ unexpectedList ++ "\nexpected type\n\t" ++ show expectedType ++ "\nbut got list expression\n\t" ++ show expr
 -- T-Cons
-checkTypeExpression context (AbsSyntax.ConsList listHead listTail) expectedType = case expectedType of
+checkTypeExpression context expr@(AbsSyntax.ConsList listHead listTail) expectedType = case expectedType of
   (AbsSyntax.TypeList elementType) -> do
     checkTypeExpression context listHead elementType
     checkTypeExpression context listTail expectedType
     pure ()
-  _ -> Left unexpectedList
+  _ -> Left $ unexpectedList ++ "\nexpected type\n\t" ++ show expectedType ++ "\nbut got list expression\n\t" ++ show expr
 -- T-IsNil
 checkTypeExpression context (AbsSyntax.IsEmpty list) expectedType = case expectedType of
   AbsSyntax.TypeBool -> do
