@@ -4,7 +4,6 @@ import Test.Hspec
 import TestUtil
 import TypeCheck.TypeCheck (ambiguousPanicType)
 
-
 spec :: Spec
 spec = describe "panic tests" $ do
   it "panic as Nat" $ do
