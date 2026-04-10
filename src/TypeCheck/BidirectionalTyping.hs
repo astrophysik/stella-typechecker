@@ -224,7 +224,7 @@ inferTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) = do
     (AbsSyntax.TypeVariant variantFields) -> do
       let fieldMap = M.fromList [(label, optType) | AbsSyntax.AVariantFieldType label optType <- variantFields]
       case matchCases of
-        [] -> Left illegalEmptyMatching
+        [] -> Left $ illegalEmptyMatching ++ "in expression\n\t" ++ show matchExpr
         (firstCase : restCase) -> do
           firstExprType <- inferVariantCase context fieldMap firstCase
           mapM_ (\c -> checkVariantCase context fieldMap c firstExprType) restCase
