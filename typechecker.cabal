@@ -32,6 +32,10 @@ library
       Parsing.ParSyntax
       Parsing.PrintSyntax
       Parsing.SkelSyntax
+      TypeCheck.BidirectionalTyping
+      TypeCheck.Common
+      TypeCheck.Decl
+      TypeCheck.Errors
       TypeCheck.TypeCheck
   other-modules:
       Paths_typechecker
@@ -78,6 +82,7 @@ test-suite typechecker-test
       SimpleTypes.SumTypesSpec
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec
+      SimpleTypes.VariantSpec
       TestUtil
       Paths_typechecker
   autogen-modules:

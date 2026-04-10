@@ -1,0 +1,9 @@
+language core;
+
+fn swap(p : Bool) -> Bool {
+  return p
+}
+
+fn main(x : Nat) -> Bool {
+  return swap(x)
+}

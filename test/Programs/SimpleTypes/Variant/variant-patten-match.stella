@@ -1,0 +1,9 @@
+language core;
+extend with #variants, #structural-patterns;
+
+fn main(n : <| a : Nat, b : Bool |>) -> Nat {
+  return match n {
+    <| a = x |> => x
+    | <| b = y |> => 0
+  }
+}
