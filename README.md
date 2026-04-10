@@ -19,6 +19,8 @@ stack build
 
 ### Command Line
 
+By default, the program reads input from **stdin** and writes type errors to **stderr**.
+
 ```bash
 # Typecheck a file
 stack run -- --input program.stella
@@ -26,8 +28,11 @@ stack run -- --input program.stella
 # Parse only (print AST without typechecking)
 stack run -- --input program.stella --parse
 
-# Read from stdin
+# Read from stdin (default behavior)
 echo 'language core; fn main(n : Nat) -> Nat { return n; }' | stack run
+
+# Type errors are written to stderr
+cat program.stella | stack run 2> error.txt
 ```
 
 ### Library Usage
@@ -57,7 +62,3 @@ stack test
 # Run with verbose output
 stack test --verbose
 ```
-
-## License
-
-BSD-3-Clause
