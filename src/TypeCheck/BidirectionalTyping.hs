@@ -11,7 +11,7 @@ import qualified Data.List
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Parsing.AbsSyntax as AbsSyntax
-import TypeCheck.Common (Context, extendContext, hasDuplicateBy, nthElement)
+import TypeCheck.Common (Context, extendContext, hasDuplicateBy, nthElement, validateType)
 import TypeCheck.Errors
 
 inferVariantCase :: Context -> M.Map AbsSyntax.StellaIdent AbsSyntax.OptionalTyping -> AbsSyntax.MatchCase -> Either String AbsSyntax.Type
@@ -88,6 +88,7 @@ inferTypeExpression _ AbsSyntax.ConstTrue = Right AbsSyntax.TypeBool
 inferTypeExpression context (AbsSyntax.If condition onTrue onFalse) = do
   checkTypeExpression context condition AbsSyntax.TypeBool
   tTrue <- inferTypeExpression context onTrue
+  validateType tTrue
   checkTypeExpression context onFalse tTrue
   pure tTrue
 -- Integer expressions
@@ -109,6 +110,7 @@ inferTypeExpression context (AbsSyntax.IsZero integer) = do
 inferTypeExpression context (AbsSyntax.NatRec n z s) = do
   checkTypeExpression context n AbsSyntax.TypeNat
   zType <- inferTypeExpression context z
+  validateType zType
   checkTypeExpression context s (AbsSyntax.TypeFun [AbsSyntax.TypeNat] (AbsSyntax.TypeFun [zType] zType))
   pure zType
 -- Lambda expressions
@@ -119,20 +121,22 @@ inferTypeExpression context (AbsSyntax.Var (AbsSyntax.StellaIdent var)) = case H
 -- T-Abs
 inferTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl (AbsSyntax.StellaIdent var) varType] body) = do
   bodyType <- inferTypeExpression (HM.insert var varType context) body
+  validateType bodyType
   pure $ AbsSyntax.TypeFun [varType] bodyType
 inferTypeExpression _ (AbsSyntax.Abstraction [] _) = Left "unsupported function with zero arguments"
 inferTypeExpression _ (AbsSyntax.Abstraction (_ : _ : _) _) = Left "unsupported function with several arguments"
 -- T-App
 inferTypeExpression context expr@(AbsSyntax.Application function [argument]) = do
   functionType <- inferTypeExpression context function
+  validateType functionType
   case functionType of
     (AbsSyntax.TypeFun [varType] bodyType) -> do
       case checkTypeExpression context argument varType of
         Left msg -> Left msg
         Right _ -> pure bodyType
     _ -> Left $ notAFunction ++ "\nexpected a function type but got\n\t" ++ show functionType ++ "\nfor the expression\n\t" ++ show function ++ "\nin the function call\n\t" ++ show expr
-inferTypeExpression _ (AbsSyntax.Application _ []) = Left "unsupported apply function with zero arguments"
-inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "unsupported apply function with several arguments"
+inferTypeExpression _ (AbsSyntax.Application _ []) = Left "Internal Error : unsupported apply function with zero arguments"
+inferTypeExpression _ (AbsSyntax.Application _ (_ : _ : _)) = Left "Internal Error : unsupported apply function with several arguments"
 -- Unit expr
 -- T-unit
 inferTypeExpression _ AbsSyntax.ConstUnit = Right AbsSyntax.TypeUnit
@@ -142,10 +146,12 @@ inferTypeExpression context (AbsSyntax.Tuple elements)
   | null elements = Left notATuple
   | otherwise = do
       elementsType <- mapM (inferTypeExpression context) elements
+      mapM_ validateType elementsType
       pure (AbsSyntax.TypeTuple elementsType)
 -- T-Proj
 inferTypeExpression context (AbsSyntax.DotTuple tuple n) = do
   tupleType <- inferTypeExpression context tuple
+  validateType tupleType
   case tupleType of
     (AbsSyntax.TypeTuple elementsType) ->
       case nthElement n elementsType of
@@ -156,7 +162,8 @@ inferTypeExpression context (AbsSyntax.DotTuple tuple n) = do
 -- T-Record
 inferTypeExpression context (AbsSyntax.Record bindings) = do
   when (hasDuplicateBy (\(AbsSyntax.ABinding lhs _) (AbsSyntax.ABinding rhs _) -> lhs == rhs) bindings) $
-    Left $ dublicateRecordFields ++ "\nduplicate record fields\n\t" ++ show bindings
+    Left $
+      dublicateRecordFields ++ "\nduplicate record fields\n\t" ++ show bindings
   bindingsType <-
     mapM
       ( \(AbsSyntax.ABinding ident expr) -> do
@@ -164,10 +171,13 @@ inferTypeExpression context (AbsSyntax.Record bindings) = do
           pure (AbsSyntax.ARecordFieldType ident exprType)
       )
       bindings
-  pure (AbsSyntax.TypeRecord bindingsType)
+  let recordType = AbsSyntax.TypeRecord bindingsType
+  validateType recordType
+  pure recordType
 -- T-Record-Proj
 inferTypeExpression context (AbsSyntax.DotRecord record ident) = do
   recordType <- inferTypeExpression context record
+  validateType recordType
   case recordType of
     (AbsSyntax.TypeRecord bindings) -> case Data.List.find (\(AbsSyntax.ARecordFieldType fieldName _) -> fieldName == ident) bindings of
       Nothing -> Left unexpectedFieldAccess
@@ -179,22 +189,26 @@ inferTypeExpression context (AbsSyntax.Let bindings expr) = do
   case bindings of
     [AbsSyntax.APatternBinding (AbsSyntax.PatternVar (AbsSyntax.StellaIdent name)) value] -> do
       valueType <- inferTypeExpression context value
-      inferTypeExpression (HM.insert name valueType context) expr
-    _ -> Left "let with several arguments is unsupported"
+      validateType valueType
+      exprType <- inferTypeExpression (HM.insert name valueType context) expr
+      validateType exprType
+      pure exprType
+    _ -> Left "Internal error : let with several arguments is unsupported"
 -- Type Ascriptions
 inferTypeExpression context (AbsSyntax.TypeAsc expr exprType) = do
   checkTypeExpression context expr exprType
   pure exprType
 -- Type Sum
 -- T-inl
-inferTypeExpression _ (AbsSyntax.Inl _) = Left ambiguousSumType
+inferTypeExpression _ expr@(AbsSyntax.Inl _) = Left $ ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
 -- T-inr
-inferTypeExpression _ (AbsSyntax.Inr _) = Left ambiguousSumType
+inferTypeExpression _ expr@(AbsSyntax.Inr _) = Left $ ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
 -- T-Variant
 inferTypeExpression _ (AbsSyntax.Variant _ _) = Left $ ambiguousVariantType ++ "\ntype inference for variants is not supported"
 -- T-Case
 inferTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) = do
   exprType <- inferTypeExpression context expr
+  validateType exprType
   case exprType of
     (AbsSyntax.TypeSum leftType rightType) -> case matchCases of
       [ AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
@@ -225,11 +239,13 @@ inferTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) = do
   where
     inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do
       leftExprType <- inferTypeExpression (HM.insert leftVarName leftVarType context) leftExpr
+      validateType leftExprType
       checkTypeExpression (HM.insert rightVarName rightVarType context) rightExpr leftExprType
       pure leftExprType
 -- List expressions
 inferTypeExpression context (AbsSyntax.List (h : t)) = do
   headType <- inferTypeExpression context h
+  validateType headType
   mapM_
     ( \element -> do
         checkTypeExpression context element headType
@@ -237,27 +253,31 @@ inferTypeExpression context (AbsSyntax.List (h : t)) = do
     t
   pure (AbsSyntax.TypeList headType)
 -- T-Nil
-inferTypeExpression _ (AbsSyntax.List []) = Left ambiguousList
+inferTypeExpression _ (AbsSyntax.List []) = Left $ ambiguousList ++ "\ntype inference of empty lists is not supported"
 -- T-Cons
 inferTypeExpression context (AbsSyntax.ConsList listHead listTail) = do
   headType <- inferTypeExpression context listHead
+  validateType headType
   checkTypeExpression context listTail (AbsSyntax.TypeList headType)
   pure $ AbsSyntax.TypeList headType
 -- T-IsNil
 inferTypeExpression context (AbsSyntax.IsEmpty list) = do
   listType <- inferTypeExpression context list
+  validateType listType
   case listType of
     (AbsSyntax.TypeList _) -> pure AbsSyntax.TypeBool
     _ -> Left notAList
 -- T-Head
 inferTypeExpression context (AbsSyntax.Head list) = do
   listType <- inferTypeExpression context list
+  validateType listType
   case listType of
     (AbsSyntax.TypeList headType) -> pure headType
     _ -> Left notAList
 -- T-Tail
 inferTypeExpression context (AbsSyntax.Tail list) = do
   listType <- inferTypeExpression context list
+  validateType listType
   case listType of
     (AbsSyntax.TypeList _) -> pure listType
     _ -> Left notAList
@@ -265,13 +285,14 @@ inferTypeExpression context (AbsSyntax.Tail list) = do
 -- T-Fix
 inferTypeExpression context (AbsSyntax.Fix function) = do
   functionType <- inferTypeExpression context function
+  validateType functionType
   case functionType of
     (AbsSyntax.TypeFun [paramType] returnType) ->
       if paramType == returnType
         then Right returnType
         else Left unexpectedTypeForExpression
     _ -> Left notAFunction
-inferTypeExpression _ _ = Left "unsupported"
+inferTypeExpression _ expr = Left $ "Internal error : unsupported type inference for expr\n\t" ++ show expr
 
 -- Type check
 checkTypeExpression :: Context -> AbsSyntax.Expr -> AbsSyntax.Type -> Either String ()
@@ -396,9 +417,10 @@ checkTypeExpression context expr@(AbsSyntax.DotTuple tuple n) expectedType = do
           ++ show expr
 -- Record expr
 -- T-Record
-checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType = do 
+checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType = do
   when (hasDuplicateBy (\(AbsSyntax.ABinding lhs _) (AbsSyntax.ABinding rhs _) -> lhs == rhs) bindings) $
-    Left $ dublicateRecordFields ++ "\nduplicate record fields\n\t" ++ show bindings
+    Left $
+      dublicateRecordFields ++ "\nduplicate record fields\n\t" ++ show bindings
   case expectedType of
     AbsSyntax.TypeRecord bindingsType -> do
       let exprMap :: M.Map AbsSyntax.StellaIdent AbsSyntax.Expr
@@ -484,7 +506,7 @@ checkTypeExpression context variantExpr@(AbsSyntax.Variant ident exprData) expec
     (AbsSyntax.TypeVariant variantFields) -> do
       when (hasDuplicateBy (\(AbsSyntax.AVariantFieldType lhs _) (AbsSyntax.AVariantFieldType rhs _) -> lhs == rhs) variantFields) $
         Left $
-          duplicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show expectedType
+          dublicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show expectedType
       let fieldMap =
             M.fromList
               [ (label, optType)
@@ -533,7 +555,7 @@ checkTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) expected
     (AbsSyntax.TypeVariant variantFields) -> do
       when (hasDuplicateBy (\(AbsSyntax.AVariantFieldType lhs _) (AbsSyntax.AVariantFieldType rhs _) -> lhs == rhs) variantFields) $
         Left $
-          duplicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show exprType
+          dublicateVariantLabels ++ "\nduplicate variant labels in variant type\n\t" ++ show exprType
       let fieldMap = M.fromList [(label, optType) | AbsSyntax.AVariantFieldType label optType <- variantFields]
       mapM_ (checkVariantMatchCase context fieldMap expectedType) matchCases
 
@@ -595,4 +617,6 @@ checkTypeExpression context (AbsSyntax.Fix function) expectedType = do
         then Right ()
         else Left unexpectedTypeForExpression
     _ -> Left notAFunction
-checkTypeExpression _ _ _ = Left "unsupported"
+checkTypeExpression context expr expectedType = do
+  exprType <- inferTypeExpression context expr
+  if exprType == expectedType then pure () else Left $ formatUnexpectedTypeForExpressionMsg exprType expectedType expr

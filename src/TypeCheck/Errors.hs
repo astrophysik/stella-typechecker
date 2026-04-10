@@ -28,7 +28,7 @@ module TypeCheck.Errors
     unexpectedTupleLength,
     unexpectedVariant,
     unexpectedVariantLabel,
-    duplicateVariantLabels,
+    dublicateVariantLabels,
     formatUnexpectedTypeForExpressionMsg,
   )
 where
@@ -86,8 +86,8 @@ unexpectedVariant = "ERROR_UNEXPECTED_VARIANT"
 unexpectedVariantLabel :: String
 unexpectedVariantLabel = "ERROR_UNEXPECTED_VARIANT_LABEL"
 
-duplicateVariantLabels :: String
-duplicateVariantLabels = "ERROR_DUPLICATE_VARIANT_TYPE_FIELDS"
+dublicateVariantLabels :: String
+dublicateVariantLabels = "ERROR_DUPLICATE_VARIANT_TYPE_FIELDS"
 
 illegalEmptyMatching :: String
 illegalEmptyMatching = "ERROR_ILLEGAL_EMPTY_MATCHING"

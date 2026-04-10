@@ -30,7 +30,7 @@ module TypeCheck.TypeCheck
     unexpectedTupleLength,
     unexpectedVariant,
     unexpectedVariantLabel,
-    duplicateVariantLabels,
+    dublicateVariantLabels,
     -- * Context
     Context,
     emptyContext,
@@ -82,7 +82,7 @@ import TypeCheck.Errors
     undefinedVariable,
     unexpectedVariant,
     unexpectedVariantLabel,
-    duplicateVariantLabels,
+    dublicateVariantLabels,
   )
 import TypeCheck.BidirectionalTyping (inferTypeExpression, checkTypeExpression)
 import qualified Data.HashMap.Strict as HM

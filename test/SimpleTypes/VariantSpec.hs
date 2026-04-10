@@ -7,9 +7,8 @@ import TypeCheck.TypeCheck
     nonExhaustiveMatchPatterns,
     unexpectedVariant,
     unexpectedVariantLabel,
-    duplicateVariantLabels,
+    dublicateVariantLabels,
   )
-import TypeCheck.Errors (duplicateVariantLabels)
 
 spec :: Spec
 spec = describe "variant type tests" $ do
@@ -30,4 +29,4 @@ spec = describe "variant type tests" $ do
   it "ill typed unexpected label in expression" $ do
     shouldFailFileWith "test/Programs/SimpleTypes/Variant/ill-typed-unexpected-label-expr.stella" unexpectedVariantLabel
   it "ill typed duplicate variant labels" $ do
-    shouldFailFileWith "test/Programs/SimpleTypes/Variant/ill-typed-duplicate-labels.stella" duplicateVariantLabels
+    shouldFailFileWith "test/Programs/SimpleTypes/Variant/ill-typed-duplicate-labels.stella" dublicateVariantLabels
