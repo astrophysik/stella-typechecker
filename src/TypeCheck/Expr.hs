@@ -514,10 +514,16 @@ checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
     (AbsSyntax.TypeSum leftType rightType) -> case matchCases of
       [ AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
         AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
-        ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
-      [ AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
-        AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
-        ] -> inferSum (leftName, leftType, leftExpr) (rightName, rightType, rightExpr)
+        ] -> do
+          checkTypeExpression (HM.insert leftName leftType context) leftExpr expectedType
+          checkTypeExpression (HM.insert rightName rightType context) rightExpr expectedType
+          pure ()
+      [ AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr,
+        AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr
+        ] -> do
+          checkTypeExpression (HM.insert rightName rightType context) rightExpr expectedType
+          checkTypeExpression (HM.insert leftName leftType context) leftExpr expectedType
+          pure ()
       [] -> Left illegalEmptyMatching
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinr"
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInr _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinl"
@@ -536,11 +542,6 @@ checkTypeExpression context (AbsSyntax.Match expr matchCases) expectedType = do
         then Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\t" ++ show missingLabels
         else Right ()
     _ -> Left unepxectedPatternForType
-  where
-    inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do
-      checkTypeExpression (HM.insert leftVarName leftVarType context) leftExpr expectedType
-      checkTypeExpression (HM.insert rightVarName rightVarType context) rightExpr expectedType
-      pure ()
 -- List expressions
 checkTypeExpression context (AbsSyntax.List (h : t)) expectedType = case expectedType of
   (AbsSyntax.TypeList typeElement) -> do
