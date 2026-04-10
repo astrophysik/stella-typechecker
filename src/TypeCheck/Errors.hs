@@ -29,6 +29,10 @@ module TypeCheck.Errors
     unexpectedVariant,
     unexpectedVariantLabel,
     dublicateVariantLabels,
+    notAReference,
+    unexpectedReferenceType,
+    ambiguousReferenceType,
+    unexpectedMemoryAddress,
     formatUnexpectedTypeForExpressionMsg,
   )
 where
@@ -124,6 +128,18 @@ ambiguousSumType = "ERROR_AMBIGUOUS_SUM_TYPE"
 
 unexpectedTupleLength :: String
 unexpectedTupleLength = "ERROR_UNEXPECTED_TUPLE_LENGTH"
+
+notAReference :: String
+notAReference = "ERROR_NOT_A_REFERENCE"
+
+unexpectedReferenceType :: String
+unexpectedReferenceType = "ERROR_UNEXPECTED_REFERENCE"
+
+ambiguousReferenceType :: String
+ambiguousReferenceType = "ERROR_AMBIGUOUS_REFERENCE_TYPE"
+
+unexpectedMemoryAddress :: String
+unexpectedMemoryAddress = "ERROR_UNEXPECTED_MEMORY_ADDRESS"
 
 formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedTypeForExpressionMsg realType expectedType expression = unexpectedTypeForExpression ++

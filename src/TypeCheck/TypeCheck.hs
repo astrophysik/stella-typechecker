@@ -31,6 +31,10 @@ module TypeCheck.TypeCheck
     unexpectedVariant,
     unexpectedVariantLabel,
     dublicateVariantLabels,
+    notAReference,
+    unexpectedReferenceType,
+    ambiguousReferenceType,
+    unexpectedMemoryAddress,
     -- * Context
     Context,
     emptyContext,
@@ -83,6 +87,10 @@ import TypeCheck.Errors
     unexpectedVariant,
     unexpectedVariantLabel,
     dublicateVariantLabels,
+    notAReference,
+    unexpectedReferenceType,
+    ambiguousReferenceType,
+    unexpectedMemoryAddress,
   )
 import TypeCheck.BidirectionalTyping (inferTypeExpression, checkTypeExpression)
 import qualified Data.HashMap.Strict as HM

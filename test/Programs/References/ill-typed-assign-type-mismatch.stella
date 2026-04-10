@@ -1,0 +1,8 @@
+language core;
+extend with #references;
+
+fn main(n : Nat) -> Unit {
+    return let x = new(0) in
+        x := true;
+        unit
+}

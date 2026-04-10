@@ -298,6 +298,42 @@ inferTypeExpression context (AbsSyntax.Sequence left right) = do
   resultType <- inferTypeExpression context right
   validateType resultType
   pure resultType
+-- references
+-- T-ref
+inferTypeExpression context (AbsSyntax.Ref expr) = do
+  exprType <- inferTypeExpression context expr
+  validateType exprType
+  pure $ AbsSyntax.TypeRef exprType
+-- T-deref
+inferTypeExpression context (AbsSyntax.Deref expr) = do
+  exprType <- inferTypeExpression context expr
+  validateType exprType
+  case exprType of
+    (AbsSyntax.TypeRef innerType) -> pure innerType
+    _ ->
+      Left $
+        notAReference
+          ++ "\ncannot dereference an expression\n\t"
+          ++ show expr
+          ++ "\nof a non-reference type\n\t"
+          ++ show exprType
+-- T-assign
+inferTypeExpression context (AbsSyntax.Assign lhs rhs) = do
+  lhsRefType <- inferTypeExpression context lhs
+  validateType lhsRefType
+  case lhsRefType of
+    (AbsSyntax.TypeRef lhsType) -> do
+      checkTypeExpression context rhs lhsType
+      pure AbsSyntax.TypeUnit
+    _ ->
+      Left $
+        notAReference
+          ++ "\ncannot assign into expression\n\t"
+          ++ show lhs
+          ++ "\nof a non-reference type\n\t"
+          ++ show lhsRefType
+-- T-loc
+inferTypeExpression _ (AbsSyntax.ConstMemory _) = Left $ ambiguousReferenceType ++ "\ncannot infer a type of a bare memory address"
 inferTypeExpression _ expr = Left $ "Internal error : unsupported type inference for expr\n\t" ++ show expr
 
 -- Type check
@@ -628,6 +664,49 @@ checkTypeExpression context (AbsSyntax.Fix function) expectedType = do
 checkTypeExpression context (AbsSyntax.Sequence left right) expectedType = do
   checkTypeExpression context left AbsSyntax.TypeUnit
   checkTypeExpression context right expectedType
+-- references
+-- T-ref
+checkTypeExpression context expr@(AbsSyntax.Ref innerExpr) expectedType = do
+  case expectedType of
+    (AbsSyntax.TypeRef innerType) -> checkTypeExpression context innerExpr innerType
+    _ ->
+      Left $
+        unexpectedReferenceType
+          ++ "\nunexpected reference in expression\n\t"
+          ++ show expr
+          ++ "\nexpected type\n\t"
+          ++ show expectedType
+-- T-deref
+checkTypeExpression context (AbsSyntax.Deref expr) expectedType = do
+  checkTypeExpression context expr (AbsSyntax.TypeRef expectedType)
+-- T-assign
+checkTypeExpression context expr@(AbsSyntax.Assign lhs rhs) expectedType = do
+  lhsRefType <- inferTypeExpression context lhs
+  validateType lhsRefType
+  case lhsRefType of
+    (AbsSyntax.TypeRef lhsType) -> do
+      checkTypeExpression context rhs lhsType
+      if expectedType == AbsSyntax.TypeUnit
+        then pure ()
+        else Left $ formatUnexpectedTypeForExpressionMsg AbsSyntax.TypeUnit expectedType expr
+    _ ->
+      Left $
+        notAReference
+          ++ "\ncannot assign into expression\n\t"
+          ++ show lhs
+          ++ "\nof a non-reference type\n\t"
+          ++ show lhsRefType
+-- T-loc
+checkTypeExpression _ (AbsSyntax.ConstMemory (AbsSyntax.MemoryAddress address)) expectedType =
+  case expectedType of
+    (AbsSyntax.TypeRef _) -> pure ()
+    _ ->
+      Left $
+        unexpectedMemoryAddress
+          ++ "\nexpected an expression of a non-reference type\n\t"
+          ++ show expectedType
+          ++ "\nbut got a bare memory address\n\t"
+          ++ show address
 -- default rule
 checkTypeExpression context expr expectedType = do
   exprType <- inferTypeExpression context expr

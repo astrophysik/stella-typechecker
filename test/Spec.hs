@@ -13,6 +13,7 @@ import qualified SimpleTypes.RecordSpec
 import qualified SimpleTypes.SumTypesSpec
 import qualified SimpleTypes.ListSpec
 import qualified SimpleTypes.VariantSpec
+import qualified References.ReferencesSpec
 
 main :: IO ()
 main = hspec $ do
@@ -30,3 +31,4 @@ main = hspec $ do
   SimpleTypes.SumTypesSpec.spec
   SimpleTypes.ListSpec.spec
   SimpleTypes.VariantSpec.spec
+  References.ReferencesSpec.spec
