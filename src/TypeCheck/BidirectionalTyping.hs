@@ -11,7 +11,7 @@ import qualified Data.List
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Parsing.AbsSyntax as AbsSyntax
-import TypeCheck.Common (Context, extendContext, hasDuplicateBy, nthElement, validateType)
+import TypeCheck.Common (Context, hasDuplicateBy, insertVar, lookupException, lookupVar, nthElement, validateType)
 import TypeCheck.Errors
 
 inferVariantCase :: Context -> M.Map AbsSyntax.StellaIdent AbsSyntax.OptionalTyping -> AbsSyntax.MatchCase -> Either String AbsSyntax.Type
@@ -23,7 +23,7 @@ inferVariantCase context fieldMap matchCase@(AbsSyntax.AMatchCase matchPattern e
         Just (AbsSyntax.SomeTyping expectedType) -> do
           case pat of
             (AbsSyntax.PatternVar (AbsSyntax.StellaIdent varName)) ->
-              inferTypeExpression (HM.insert varName expectedType context) expr
+              inferTypeExpression (insertVar varName expectedType context) expr
             AbsSyntax.PatternUnit ->
               inferTypeExpression context expr
             _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show pat ++ "\nwhen pattern matching is expected for type\n\t" ++ show expectedType
@@ -44,7 +44,7 @@ checkVariantCase context fieldMap (AbsSyntax.AMatchCase matchPattern expr) expec
         Just (AbsSyntax.SomeTyping varType) ->
           case pat of
             (AbsSyntax.PatternVar (AbsSyntax.StellaIdent varName)) ->
-              checkTypeExpression (HM.insert varName varType context) expr expectedType
+              checkTypeExpression (insertVar varName varType context) expr expectedType
             AbsSyntax.PatternUnit ->
               checkTypeExpression context expr expectedType
             _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show pat ++ "\nwhen pattern matching is expected for type\n\t" ++ show varType
@@ -65,7 +65,7 @@ checkVariantMatchCase context fieldMap expectedType (AbsSyntax.AMatchCase matchP
         Just (AbsSyntax.SomeTyping varType) ->
           case pat of
             (AbsSyntax.PatternVar (AbsSyntax.StellaIdent varName)) ->
-              checkTypeExpression (HM.insert varName varType context) expr expectedType
+              checkTypeExpression (insertVar varName varType context) expr expectedType
             AbsSyntax.PatternUnit ->
               checkTypeExpression context expr expectedType
             _ -> Left $ unepxectedPatternForType ++ "\nunexpected pattern\n\t" ++ show pat ++ "\nwhen pattern matching is expected for type\n\t" ++ show varType
@@ -115,12 +115,12 @@ inferTypeExpression context (AbsSyntax.NatRec n z s) = do
   pure zType
 -- Lambda expressions
 -- T-Var
-inferTypeExpression context (AbsSyntax.Var (AbsSyntax.StellaIdent var)) = case HM.lookup var context of
+inferTypeExpression context (AbsSyntax.Var (AbsSyntax.StellaIdent var)) = case lookupVar var context of
   Just tValue -> Right tValue
   Nothing -> Left $ undefinedVariable ++ "\nundefined variable " ++ show var
 -- T-Abs
 inferTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl (AbsSyntax.StellaIdent var) varType] body) = do
-  bodyType <- inferTypeExpression (HM.insert var varType context) body
+  bodyType <- inferTypeExpression (insertVar var varType context) body
   validateType bodyType
   pure $ AbsSyntax.TypeFun [varType] bodyType
 inferTypeExpression _ (AbsSyntax.Abstraction [] _) = Left "unsupported function with zero arguments"
@@ -190,7 +190,7 @@ inferTypeExpression context (AbsSyntax.Let bindings expr) = do
     [AbsSyntax.APatternBinding (AbsSyntax.PatternVar (AbsSyntax.StellaIdent name)) value] -> do
       valueType <- inferTypeExpression context value
       validateType valueType
-      exprType <- inferTypeExpression (HM.insert name valueType context) expr
+      exprType <- inferTypeExpression (insertVar name valueType context) expr
       validateType exprType
       pure exprType
     _ -> Left "Internal error : let with several arguments is unsupported"
@@ -237,9 +237,9 @@ inferTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) = do
     _ -> Left $ unexpectedTypeForExpression ++ "\nexpected variant of sum-type in match but got\n\t" ++ show exprType ++ "\nin expression\n\t" ++ show matchExpr
   where
     inferSum (leftVarName, leftVarType, leftExpr) (rightVarName, rightVarType, rightExpr) = do
-      leftExprType <- inferTypeExpression (HM.insert leftVarName leftVarType context) leftExpr
+      leftExprType <- inferTypeExpression (insertVar leftVarName leftVarType context) leftExpr
       validateType leftExprType
-      checkTypeExpression (HM.insert rightVarName rightVarType context) rightExpr leftExprType
+      checkTypeExpression (insertVar rightVarName rightVarType context) rightExpr leftExprType
       pure leftExprType
 -- List expressions
 inferTypeExpression context (AbsSyntax.List (h : t)) = do
@@ -336,6 +336,31 @@ inferTypeExpression context (AbsSyntax.Assign lhs rhs) = do
 inferTypeExpression _ (AbsSyntax.ConstMemory _) = Left $ ambiguousReferenceType ++ "\ncannot infer a type of a bare memory address"
 -- T-Error
 inferTypeExpression _ AbsSyntax.Panic = Left $ ambiguousPanicType ++ "\ncannot infer a type of a panic"
+-- T-Raise
+inferTypeExpression context (AbsSyntax.Throw expr) = do
+  case lookupException context of
+    Nothing -> Left $ exceptionTypeNotDeclared ++ "\ncannot throw exceptions, because exception type is not declared"
+    Just _ -> do
+      _ <- inferTypeExpression context expr
+      Left $ ambiguousThrowType ++ "\ncannot infer type for throw"
+-- T-TryWith
+inferTypeExpression context (AbsSyntax.TryWith mainBranch fallbackBranch) = do
+  mainBranchType <- inferTypeExpression context mainBranch
+  checkTypeExpression context fallbackBranch mainBranchType
+  pure mainBranchType
+-- T-TryCatch
+inferTypeExpression context (AbsSyntax.TryCatch mainBranch catchPattern fallbackExpr) = do
+  mainBranchType <- inferTypeExpression context mainBranch
+  case lookupException context of
+    Nothing ->
+      Left $
+        exceptionTypeNotDeclared ++ "\ncannot typecheck catch, because exception type is not declared"
+    Just exceptionType -> do
+      case catchPattern of
+        (AbsSyntax.PatternVar (AbsSyntax.StellaIdent varName)) -> do
+          checkTypeExpression (insertVar varName exceptionType context) fallbackExpr mainBranchType
+          pure mainBranchType
+        _ -> Left "Internal error : unsupported catch pattern"
 inferTypeExpression _ expr = Left $ "Internal error : unsupported type inference for expr\n\t" ++ show expr
 
 -- Type check
@@ -389,7 +414,7 @@ checkTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl varIden
     then
       ( do
           checkTypeExpression
-            (HM.insert varName paramType context)
+            (insertVar varName paramType context)
             body
             resultType
           pure ()
@@ -527,7 +552,7 @@ checkTypeExpression content (AbsSyntax.Let bindings expr) expectedType = do
   case bindings of
     [AbsSyntax.APatternBinding (AbsSyntax.PatternVar (AbsSyntax.StellaIdent name)) value] -> do
       valueType <- inferTypeExpression content value
-      checkTypeExpression (HM.insert name valueType content) expr expectedType
+      checkTypeExpression (insertVar name valueType content) expr expectedType
     _ -> Left "Typechecker internal error : let with several arguments is unsupported"
 -- Type Ascriptions
 checkTypeExpression context typeAscExpr@(AbsSyntax.TypeAsc expr exprType) expectedType = do
@@ -583,14 +608,14 @@ checkTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) expected
       [ AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr,
         AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr
         ] -> do
-          checkTypeExpression (HM.insert leftName leftType context) leftExpr expectedType
-          checkTypeExpression (HM.insert rightName rightType context) rightExpr expectedType
+          checkTypeExpression (insertVar leftName leftType context) leftExpr expectedType
+          checkTypeExpression (insertVar rightName rightType context) rightExpr expectedType
           pure ()
       [ AbsSyntax.AMatchCase (AbsSyntax.PatternInr (AbsSyntax.PatternVar (AbsSyntax.StellaIdent rightName))) rightExpr,
         AbsSyntax.AMatchCase (AbsSyntax.PatternInl (AbsSyntax.PatternVar (AbsSyntax.StellaIdent leftName))) leftExpr
         ] -> do
-          checkTypeExpression (HM.insert rightName rightType context) rightExpr expectedType
-          checkTypeExpression (HM.insert leftName leftType context) leftExpr expectedType
+          checkTypeExpression (insertVar rightName rightType context) rightExpr expectedType
+          checkTypeExpression (insertVar leftName leftType context) leftExpr expectedType
           pure ()
       [] -> Left $ illegalEmptyMatching ++ "in expression\n\t" ++ show matchExpr
       [AbsSyntax.AMatchCase (AbsSyntax.PatternInl _) _] -> Left $ nonExhaustiveMatchPatterns ++ "\nwhen matching on expression\n\t" ++ show expr ++ "\nmisssing labels\n\tinr"
@@ -711,6 +736,31 @@ checkTypeExpression _ (AbsSyntax.ConstMemory (AbsSyntax.MemoryAddress address)) 
           ++ show address
 -- T-Error
 checkTypeExpression _ AbsSyntax.Panic _ = pure ()
+-- T-Raise
+checkTypeExpression context (AbsSyntax.Throw expr) _ = do
+  case lookupException context of
+    Nothing -> Left $ exceptionTypeNotDeclared ++ "\ncannot throw exceptions, because exception type is not declared"
+    Just exceptionType -> do 
+      checkTypeExpression context expr exceptionType
+      pure ()
+-- T-TryWith
+checkTypeExpression context (AbsSyntax.TryWith mainBranch fallbackBranch) expectedType = do
+  checkTypeExpression context mainBranch expectedType
+  checkTypeExpression context fallbackBranch expectedType
+  pure ()
+-- T-TryCatch
+checkTypeExpression context (AbsSyntax.TryCatch mainBranch catchPattern fallbackExpr) expectedType = do
+  checkTypeExpression context mainBranch expectedType
+  case lookupException context of
+    Nothing ->
+      Left $
+        exceptionTypeNotDeclared ++ "\ncannot typecheck catch, because exception type is not declared"
+    Just exceptionType -> do
+      case catchPattern of
+        (AbsSyntax.PatternVar (AbsSyntax.StellaIdent varName)) -> do
+          checkTypeExpression (insertVar varName exceptionType context) fallbackExpr expectedType
+          pure ()
+        _ -> Left "Internal error : unsupported catch pattern"
 -- default rule
 checkTypeExpression context expr expectedType = do
   exprType <- inferTypeExpression context expr

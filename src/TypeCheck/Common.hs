@@ -2,10 +2,12 @@ module TypeCheck.Common
   ( Context,
     emptyContext,
     lookupVar,
-    extendContext,
+    insertVar,
     nthElement,
     hasDuplicateBy,
     validateType,
+    lookupException,
+    insertException,
   )
 where
 
@@ -14,16 +16,34 @@ import qualified Data.HashMap.Strict as HM
 import qualified Parsing.AbsSyntax as AbsSyntax
 import qualified TypeCheck.Errors (dublicateRecordTypeFields, dublicateVariantLabels)
 
-type Context = HM.HashMap String AbsSyntax.Type
+data Context = Context
+  { variableContext :: HM.HashMap String AbsSyntax.Type,
+    exceptionContext :: Maybe AbsSyntax.Type
+  }
+  deriving (Show)
 
 emptyContext :: Context
-emptyContext = HM.empty
+emptyContext = Context {variableContext = HM.empty, exceptionContext = Nothing}
 
 lookupVar :: String -> Context -> Maybe AbsSyntax.Type
-lookupVar = HM.lookup
+lookupVar varName context = HM.lookup varName (variableContext context)
 
-extendContext :: String -> AbsSyntax.Type -> Context -> Context
-extendContext = HM.insert
+insertVar :: String -> AbsSyntax.Type -> Context -> Context
+insertVar varName varType context =
+  Context
+    { variableContext = HM.insert varName varType (variableContext context),
+      exceptionContext = exceptionContext context
+    }
+
+lookupException :: Context -> Maybe AbsSyntax.Type
+lookupException = exceptionContext
+
+insertException :: AbsSyntax.Type -> Context -> Context
+insertException exceptionType context =
+  Context
+    { variableContext = variableContext context,
+      exceptionContext = Just exceptionType
+    }
 
 nthElement :: Integer -> [a] -> Maybe a
 nthElement 1 (x : _) = Just x

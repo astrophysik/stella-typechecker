@@ -34,6 +34,9 @@ module TypeCheck.Errors
     ambiguousReferenceType,
     unexpectedMemoryAddress,
     ambiguousPanicType,
+    duplicateExceptionType,
+    exceptionTypeNotDeclared,
+    ambiguousThrowType,
     formatUnexpectedTypeForExpressionMsg,
   )
 where
@@ -144,6 +147,15 @@ unexpectedMemoryAddress = "ERROR_UNEXPECTED_MEMORY_ADDRESS"
 
 ambiguousPanicType :: String
 ambiguousPanicType = "ERROR_AMBIGUOUS_PANIC_TYPE"
+
+duplicateExceptionType :: String
+duplicateExceptionType = "ERROR_DUPLICATE_EXCEPTION_TYPE"
+
+exceptionTypeNotDeclared :: String
+exceptionTypeNotDeclared = "ERROR_EXCEPTION_TYPE_NOT_DECLARED"
+
+ambiguousThrowType :: String
+ambiguousThrowType = "RROR_AMBIGUOUS_THROW_TYPE"
 
 formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedTypeForExpressionMsg realType expectedType expression =

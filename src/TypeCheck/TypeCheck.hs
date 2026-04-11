@@ -36,11 +36,14 @@ module TypeCheck.TypeCheck
     ambiguousReferenceType,
     unexpectedMemoryAddress,
     ambiguousPanicType,
+    duplicateExceptionType,
+    exceptionTypeNotDeclared,
+    ambiguousThrowType,
     -- * Context
     Context,
     emptyContext,
     lookupVar,
-    extendContext,
+    insertVar,
     -- * Type inference and checking
     inferTypeExpression,
     checkTypeExpression,
@@ -53,7 +56,7 @@ where
 import TypeCheck.Common
   ( Context,
     emptyContext,
-    extendContext,
+    insertVar,
     lookupVar,
   )
 import TypeCheck.Decl (checkDeclarations, collectDeclarations)
@@ -93,15 +96,17 @@ import TypeCheck.Errors
     ambiguousReferenceType,
     unexpectedMemoryAddress,
     ambiguousPanicType,
+    duplicateExceptionType,
+    exceptionTypeNotDeclared,
+    ambiguousThrowType,
   )
 import TypeCheck.BidirectionalTyping (inferTypeExpression, checkTypeExpression)
-import qualified Data.HashMap.Strict as HM
 import qualified Parsing.AbsSyntax as AbsSyntax
 
 -- | Main entry point for type checking a program.
 typeCheck :: AbsSyntax.Program -> Either String ()
 typeCheck (AbsSyntax.AProgram _ _ declarations) = do
   programContext <- collectDeclarations declarations
-  case HM.lookup "main" programContext of
+  case lookupVar "main" programContext of
     Just _ -> checkDeclarations programContext declarations
     Nothing -> Left missingMain
