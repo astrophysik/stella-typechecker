@@ -4,14 +4,14 @@ module TypeCheck.BidirectionalTyping
   )
 where
 
-import Control.Monad (forM_, when)
+import Control.Monad (forM_, when, unless)
 import qualified Control.Monad (zipWithM_)
 import qualified Data.List
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Parsing.AbsSyntax as AbsSyntax
 import TypeCheck.Common (hasDuplicateBy, nthElement, validateType)
-import TypeCheck.Context (Context, insertVar, lookupVar, lookupException, isSubTypingEnabled)
+import TypeCheck.Context (Context, insertVar, lookupVar, lookupException, lookupSubTyping, lookupAmbiguousTypeAsBottom)
 import TypeCheck.Errors
 import TypeCheck.SubTyping ((<:))
 
@@ -80,7 +80,7 @@ checkVariantMatchCase context fieldMap expectedType (AbsSyntax.AMatchCase matchP
 
 compatible :: Context -> AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> Either String ()
 compatible ctx t1 t2 expr
-  | isSubTypingEnabled ctx = if t1 <: t2 then Right () else Left $ formatUnexpectedSubTypeMsg t1 t2 expr
+  | lookupSubTyping ctx = if t1 <: t2 then Right () else Left $ formatUnexpectedSubTypeMsg t1 t2 expr
   | otherwise = if t1 == t2 then Right () else Left $ formatUnexpectedTypeForExpressionMsg t1 t2 expr
 
 -- Type infer
@@ -206,11 +206,26 @@ inferTypeExpression context (AbsSyntax.TypeAsc expr exprType) = do
   pure exprType
 -- Type Sum
 -- T-inl
-inferTypeExpression _ expr@(AbsSyntax.Inl _) = Left $ ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
+inferTypeExpression context expr@(AbsSyntax.Inl inlExpr) = do 
+  unless (lookupAmbiguousTypeAsBottom context) $
+    Left $ ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
+  inlType <- inferTypeExpression context inlExpr
+  pure $ AbsSyntax.TypeSum inlType AbsSyntax.TypeBottom
 -- T-inr
-inferTypeExpression _ expr@(AbsSyntax.Inr _) = Left $ ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
+inferTypeExpression context expr@(AbsSyntax.Inr inrExpr) = do
+  unless (lookupAmbiguousTypeAsBottom context) $
+    Left $ ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
+  inrType <- inferTypeExpression context inrExpr
+  pure $ AbsSyntax.TypeSum AbsSyntax.TypeBottom inrType 
 -- T-Variant
-inferTypeExpression _ (AbsSyntax.Variant _ _) = Left $ ambiguousVariantType ++ "\ntype inference for variants is not supported"
+inferTypeExpression context (AbsSyntax.Variant ident variantData) = do
+  unless (lookupSubTyping context) $
+    Left $ ambiguousVariantType ++ "\ntype inference for variants is not supported"
+  case variantData of 
+    AbsSyntax.NoExprData -> pure $ AbsSyntax.TypeVariant [AbsSyntax.AVariantFieldType ident AbsSyntax.NoTyping]
+    (AbsSyntax.SomeExprData exprData) -> do
+      exprType <- inferTypeExpression context exprData
+      pure $ AbsSyntax.TypeVariant [AbsSyntax.AVariantFieldType ident (AbsSyntax.SomeTyping exprType)]
 -- T-Case
 inferTypeExpression context matchExpr@(AbsSyntax.Match expr matchCases) = do
   exprType <- inferTypeExpression context expr
@@ -258,7 +273,10 @@ inferTypeExpression context (AbsSyntax.List (h : t)) = do
     t
   pure (AbsSyntax.TypeList headType)
 -- T-Nil
-inferTypeExpression _ (AbsSyntax.List []) = Left $ ambiguousList ++ "\ntype inference of empty lists is not supported"
+inferTypeExpression context (AbsSyntax.List []) = do
+  unless (lookupAmbiguousTypeAsBottom context) $
+    Left $ ambiguousList ++ "\ntype inference of empty lists is not supported"
+  pure AbsSyntax.TypeBottom
 -- T-Cons
 inferTypeExpression context (AbsSyntax.ConsList listHead listTail) = do
   headType <- inferTypeExpression context listHead
@@ -341,14 +359,19 @@ inferTypeExpression context (AbsSyntax.Assign lhs rhs) = do
 -- T-loc
 inferTypeExpression _ (AbsSyntax.ConstMemory _) = Left $ ambiguousReferenceType ++ "\ncannot infer a type of a bare memory address"
 -- T-Error
-inferTypeExpression _ AbsSyntax.Panic = Left $ ambiguousPanicType ++ "\ncannot infer a type of a panic"
+inferTypeExpression context AbsSyntax.Panic = do 
+  unless (lookupAmbiguousTypeAsBottom context) $
+    Left $ ambiguousPanicType ++ "\ntype inference of empty lists is not supported"
+  pure AbsSyntax.TypeBottom
 -- T-Raise
 inferTypeExpression context (AbsSyntax.Throw expr) = do
   case lookupException context of
     Nothing -> Left $ exceptionTypeNotDeclared ++ "\ncannot throw exceptions, because exception type is not declared"
-    Just _ -> do
-      _ <- inferTypeExpression context expr
-      Left $ ambiguousThrowType ++ "\ncannot infer type for throw"
+    Just exceptionType -> do
+      checkTypeExpression context expr exceptionType
+      unless (lookupAmbiguousTypeAsBottom context) $
+        Left $ ambiguousThrowType ++ "\ncannot infer type for throw"
+      pure AbsSyntax.TypeBottom
 -- T-TryWith
 inferTypeExpression context (AbsSyntax.TryWith mainBranch fallbackBranch) = do
   mainBranchType <- inferTypeExpression context mainBranch
@@ -419,7 +442,7 @@ checkTypeExpression context var@(AbsSyntax.Var _) expectedType = do
 checkTypeExpression context expr@(AbsSyntax.Abstraction [AbsSyntax.AParamDecl varIdent@(AbsSyntax.StellaIdent varName) varType] body) (AbsSyntax.TypeFun [paramType] resultType) = do
   case compatible context paramType varType expr of -- case to print unexpectedTypeForParam instead of unexpectedTypeForExpr
     Left msg ->
-      if isSubTypingEnabled context
+      if lookupSubTyping context
         then Left msg
         else Left $ unexpectedTypeForParam ++ "\nexpected type\n\t" ++ show paramType ++ "\nbut got\n\t" ++ show varType ++ "\nfor param " ++ show varIdent
     Right _ -> checkTypeExpression (insertVar varName paramType context) body resultType
@@ -513,7 +536,7 @@ checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType 
           typeKeys = M.keysSet typeMap
 
       let extraInExpr = S.difference exprKeys typeKeys
-      if not (S.null extraInExpr) && not (isSubTypingEnabled context)
+      if not (S.null extraInExpr) && not (lookupSubTyping context)
         then
           Left $
             unexpectedRecordFields
@@ -539,7 +562,7 @@ checkTypeExpression context recordExpr@(AbsSyntax.Record bindings) expectedType 
               forM_ (M.toList exprMap) $ \(ident, expr) ->
                 case M.lookup ident typeMap of
                   Nothing ->
-                    if isSubTypingEnabled context
+                    if lookupSubTyping context
                       then case inferTypeExpression context expr of
                         Right _ -> Right ()
                         Left msg -> Left msg

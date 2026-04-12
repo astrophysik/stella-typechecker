@@ -16,6 +16,7 @@ import qualified SimpleTypes.SumTypesSpec
 import qualified SimpleTypes.TupleSpec
 import qualified SimpleTypes.UnitSpec
 import qualified SimpleTypes.VariantSpec
+import qualified SubTyping.AmbiguousTypeAsBottom
 import qualified SubTyping.SubTyping
 import qualified SubTyping.TopBottom
 import Test.Hspec
@@ -42,3 +43,4 @@ main = hspec $ do
   Exceptions.ExceptionsSpec.spec
   SubTyping.SubTyping.spec
   SubTyping.TopBottom.spec
+  SubTyping.AmbiguousTypeAsBottom.spec

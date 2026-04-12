@@ -6,7 +6,9 @@ module TypeCheck.Context
     lookupException,
     insertException,
     enableSubTyping,
-    isSubTypingEnabled,
+    lookupSubTyping,
+    lookupAmbiguousTypeAsBottom,
+    enableAmbiguousTypeAsBottom,
   )
 where
 
@@ -16,12 +18,13 @@ import qualified Parsing.AbsSyntax as AbsSyntax
 data Context = Context
   { variableContext :: HM.HashMap String AbsSyntax.Type,
     exceptionContext :: Maybe AbsSyntax.Type,
-    useSubTyping :: Bool
+    useSubTyping :: Bool,
+    useAmbiguousTypeAsBottom :: Bool
   }
   deriving (Show)
 
 emptyContext :: Context
-emptyContext = Context {variableContext = HM.empty, exceptionContext = Nothing, useSubTyping = False}
+emptyContext = Context {variableContext = HM.empty, exceptionContext = Nothing, useSubTyping = False, useAmbiguousTypeAsBottom = False}
 
 lookupVar :: String -> Context -> Maybe AbsSyntax.Type
 lookupVar varName context = HM.lookup varName (variableContext context)
@@ -31,7 +34,8 @@ insertVar varName varType context =
   Context
     { variableContext = HM.insert varName varType (variableContext context),
       exceptionContext = exceptionContext context,
-      useSubTyping = useSubTyping context
+      useSubTyping = useSubTyping context,
+      useAmbiguousTypeAsBottom = useAmbiguousTypeAsBottom context
     }
 
 lookupException :: Context -> Maybe AbsSyntax.Type
@@ -42,16 +46,30 @@ insertException exceptionType context =
   Context
     { variableContext = variableContext context,
       exceptionContext = Just exceptionType,
-      useSubTyping = useSubTyping context
+      useSubTyping = useSubTyping context,
+      useAmbiguousTypeAsBottom = useAmbiguousTypeAsBottom context
     }
 
-isSubTypingEnabled :: Context -> Bool
-isSubTypingEnabled = useSubTyping
+lookupSubTyping :: Context -> Bool
+lookupSubTyping = useSubTyping
 
 enableSubTyping :: Context -> Context
 enableSubTyping context =
   Context
     { variableContext = variableContext context,
       exceptionContext = exceptionContext context,
-      useSubTyping = True
+      useSubTyping = True,
+      useAmbiguousTypeAsBottom = useAmbiguousTypeAsBottom context
+    }
+
+lookupAmbiguousTypeAsBottom :: Context -> Bool
+lookupAmbiguousTypeAsBottom = useAmbiguousTypeAsBottom
+
+enableAmbiguousTypeAsBottom :: Context -> Context
+enableAmbiguousTypeAsBottom context = 
+    Context
+    { variableContext = variableContext context,
+      exceptionContext = exceptionContext context,
+      useSubTyping = useSubTyping context,
+      useAmbiguousTypeAsBottom = True
     }

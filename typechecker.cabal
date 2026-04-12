@@ -90,6 +90,7 @@ test-suite typechecker-test
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec
       SimpleTypes.VariantSpec
+      SubTyping.AmbiguousTypeAsBottom
       SubTyping.SubTyping
       SubTyping.TopBottom
       TestUtil

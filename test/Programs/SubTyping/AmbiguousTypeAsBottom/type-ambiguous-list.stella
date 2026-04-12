@@ -1,0 +1,9 @@
+language core;
+
+extend with #ambiguous-type-as-bottom,
+            #lists,
+            #structural-subtyping;
+
+fn main(n : Nat) -> [Nat] {
+  return (fn(n : Nat) {return []})(0)
+}

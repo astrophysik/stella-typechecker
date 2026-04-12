@@ -13,6 +13,7 @@ import TypeCheck.Common (validateType)
 import TypeCheck.Context
   ( Context,
     emptyContext,
+    enableAmbiguousTypeAsBottom,
     enableSubTyping,
     insertException,
     insertVar,
@@ -52,16 +53,17 @@ collectDeclarations _ = Left "Internal error : unsupported declaration"
 
 processExtensions :: Context -> [AbsSyntax.Extension] -> Context
 processExtensions context extensions =
-  if any
-    ( \case
-        AbsSyntax.AnExtension nestedExtensions ->
-          any
-            ( \case
-                (AbsSyntax.ExtensionName "#structural-subtyping") -> True
-                _ -> False
-            )
-            nestedExtensions
-    )
-    extensions
-    then enableSubTyping context
-    else context
+  let hasExtension name = any
+        ( \case
+            AbsSyntax.AnExtension nestedExtensions ->
+              any
+                ( \case
+                    (AbsSyntax.ExtensionName ext) -> ext == name
+                    _ -> False
+                )
+                nestedExtensions
+        )
+        extensions
+   in (if hasExtension "#structural-subtyping" then enableSubTyping else id)
+        . (if hasExtension "#ambiguous-type-as-bottom" then enableAmbiguousTypeAsBottom else id)
+        $ context
