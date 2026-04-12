@@ -6,13 +6,12 @@ where
 
 import Control.Monad (forM_, when)
 import qualified Control.Monad (zipWithM_)
-import qualified Data.HashMap.Strict as HM
 import qualified Data.List
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
-import qualified GHC.RTS.Flags as AbsSyntax
 import qualified Parsing.AbsSyntax as AbsSyntax
-import TypeCheck.Common (Context, hasDuplicateBy, insertVar, isSubTypingEnabled, lookupException, lookupVar, nthElement, validateType)
+import TypeCheck.Common (hasDuplicateBy, nthElement, validateType)
+import TypeCheck.Context (Context, insertVar, lookupVar, lookupException, isSubTypingEnabled)
 import TypeCheck.Errors
 import TypeCheck.SubTyping ((<:))
 

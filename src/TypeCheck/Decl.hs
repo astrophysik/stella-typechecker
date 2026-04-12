@@ -9,7 +9,8 @@ where
 
 import qualified Parsing.AbsSyntax as AbsSyntax
 import TypeCheck.BidirectionalTyping (checkTypeExpression)
-import TypeCheck.Common
+import TypeCheck.Common (validateType)
+import TypeCheck.Context
   ( Context,
     emptyContext,
     enableSubTyping,
@@ -17,7 +18,6 @@ import TypeCheck.Common
     insertVar,
     lookupException,
     lookupVar,
-    validateType,
   )
 import TypeCheck.Errors (dublicateFunctionDeclaration, duplicateExceptionType)
 

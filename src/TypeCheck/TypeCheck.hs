@@ -60,7 +60,7 @@ where
 
 import qualified Parsing.AbsSyntax as AbsSyntax
 import TypeCheck.BidirectionalTyping (checkTypeExpression, inferTypeExpression)
-import TypeCheck.Common
+import TypeCheck.Context
   ( Context,
     emptyContext,
     insertVar,
