@@ -37,7 +37,9 @@ module TypeCheck.Errors
     duplicateExceptionType,
     exceptionTypeNotDeclared,
     ambiguousThrowType,
+    unexpectedSubType,
     formatUnexpectedTypeForExpressionMsg,
+    formatUnexpectedSubTypeMsg,
   )
 where
 
@@ -156,6 +158,21 @@ exceptionTypeNotDeclared = "ERROR_EXCEPTION_TYPE_NOT_DECLARED"
 
 ambiguousThrowType :: String
 ambiguousThrowType = "RROR_AMBIGUOUS_THROW_TYPE"
+
+unexpectedSubType :: String
+unexpectedSubType = "ERROR_UNEXPECTED_SUBTYPE"
+
+
+formatUnexpectedSubTypeMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
+formatUnexpectedSubTypeMsg realType expectedType expression =
+  unexpectedSubType
+    ++ "\nexpected a subtype of\n\t"
+    ++ show expectedType
+    ++ "\nbut got\n\t"
+    ++ show realType
+    ++ "\nwhen typechecking the expression\n\t"
+    ++ show expression
+
 
 formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedTypeForExpressionMsg realType expectedType expression =

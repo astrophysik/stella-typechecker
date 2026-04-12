@@ -1,6 +1,9 @@
+{-# LANGUAGE LambdaCase #-}
+
 module TypeCheck.Decl
   ( checkDeclarations,
     collectDeclarations,
+    processExtensions,
   )
 where
 
@@ -9,6 +12,7 @@ import TypeCheck.BidirectionalTyping (checkTypeExpression)
 import TypeCheck.Common
   ( Context,
     emptyContext,
+    enableSubTyping,
     insertException,
     insertVar,
     lookupException,
@@ -25,7 +29,7 @@ checkDeclarations programContext ((AbsSyntax.DeclFun _ _ [AbsSyntax.AParamDecl (
   let functionContext = insertVar paramName paramType programContext
   checkTypeExpression functionContext expr returnType
   checkDeclarations programContext xs
-checkDeclarations programContext ((AbsSyntax.DeclExceptionType _) : xs) = checkDeclarations programContext xs 
+checkDeclarations programContext ((AbsSyntax.DeclExceptionType _) : xs) = checkDeclarations programContext xs
 checkDeclarations _ _ = Left "Internal error : unsupported declaration"
 
 collectDeclarations :: [AbsSyntax.Decl] -> Either String Context
@@ -39,9 +43,25 @@ collectDeclarations ((AbsSyntax.DeclFun _ (AbsSyntax.StellaIdent name) [AbsSynta
     _ -> pure $ insertVar name (AbsSyntax.TypeFun [paramType] returnType) tailContext
 collectDeclarations ((AbsSyntax.DeclExceptionType exceptionType) : xs) = do
   tailContext <- collectDeclarations xs
-  case lookupException tailContext of 
+  case lookupException tailContext of
     Just _ -> Left $ duplicateExceptionType ++ "\nduplicate exception type declaration(s) at top-level (only one is allowed)"
-    _ -> case exceptionType of 
-      AbsSyntax.TypeVar typeName-> Left $ "Illegal type\n" ++ show typeName
+    _ -> case exceptionType of
+      AbsSyntax.TypeVar typeName -> Left $ "Illegal type\n" ++ show typeName
       _ -> pure $ insertException exceptionType tailContext
 collectDeclarations _ = Left "Internal error : unsupported declaration"
+
+processExtensions :: Context -> [AbsSyntax.Extension] -> Context
+processExtensions context extensions =
+  if any
+    ( \case
+        AbsSyntax.AnExtension nestedExtensions ->
+          any
+            ( \case
+                (AbsSyntax.ExtensionName "#structural-subtyping") -> True
+                _ -> False
+            )
+            nestedExtensions
+    )
+    extensions
+    then enableSubTyping context
+    else context

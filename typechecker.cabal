@@ -36,6 +36,7 @@ library
       TypeCheck.Common
       TypeCheck.Decl
       TypeCheck.Errors
+      TypeCheck.SubTyping
       TypeCheck.TypeCheck
   other-modules:
       Paths_typechecker
@@ -87,6 +88,7 @@ test-suite typechecker-test
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec
       SimpleTypes.VariantSpec
+      SubTyping.SubTyping
       TestUtil
       Paths_typechecker
   autogen-modules:

@@ -1,0 +1,9 @@
+language core;
+
+extend with
+  #records, #tuples, #sum-types, #variants, #unit-type, #lists,#fixpoint-combinator,
+  #structural-subtyping;
+
+fn main(n : Nat) -> {Nat, Bool} {
+  return {true, 0}
+}
