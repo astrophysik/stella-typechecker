@@ -5,7 +5,7 @@ module TypeCheck.Common
   )
 where
 
-import Control.Monad (forM_, when)
+import Control.Monad (when)
 import qualified Parsing.AbsSyntax as AbsSyntax
 import qualified TypeCheck.Errors (dublicateRecordTypeFields, dublicateVariantLabels)
 
