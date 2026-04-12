@@ -1,23 +1,23 @@
-import Test.Hspec
 import qualified Core.BoolSpec
 import qualified Core.IntSpec
 import qualified Core.LambdaSpec
 import qualified Decl.DeclSpec
-import qualified DerivedForms.TypeAsc
 import qualified DerivedForms.FixPointSpec
-import qualified DerivedForms.SequencingSpec
 import qualified DerivedForms.LetSpec
-import qualified SimpleTypes.UnitSpec
-import qualified SimpleTypes.TupleSpec
+import qualified DerivedForms.SequencingSpec
+import qualified DerivedForms.TypeAsc
+import qualified DerivedForms.TypeCast
+import qualified Exceptions.ExceptionsSpec
+import qualified Exceptions.PanicSpec
+import qualified References.ReferencesSpec
+import qualified SimpleTypes.ListSpec
 import qualified SimpleTypes.RecordSpec
 import qualified SimpleTypes.SumTypesSpec
-import qualified SimpleTypes.ListSpec
+import qualified SimpleTypes.TupleSpec
+import qualified SimpleTypes.UnitSpec
 import qualified SimpleTypes.VariantSpec
-import qualified References.ReferencesSpec
-import qualified Exceptions.PanicSpec
-import qualified Exceptions.ExceptionsSpec
 import qualified SubTyping.SubTyping
-
+import Test.Hspec
 
 main :: IO ()
 main = hspec $ do
@@ -29,6 +29,7 @@ main = hspec $ do
   DerivedForms.FixPointSpec.spec
   DerivedForms.LetSpec.spec
   DerivedForms.SequencingSpec.spec
+  DerivedForms.TypeCast.spec
   SimpleTypes.UnitSpec.spec
   SimpleTypes.TupleSpec.spec
   SimpleTypes.RecordSpec.spec

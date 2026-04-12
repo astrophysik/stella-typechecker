@@ -368,6 +368,10 @@ inferTypeExpression context (AbsSyntax.TryCatch mainBranch catchPattern fallback
           checkTypeExpression (insertVar varName exceptionType context) fallbackExpr mainBranchType
           pure mainBranchType
         _ -> Left "Internal error : unsupported catch pattern"
+-- T-Cast
+inferTypeExpression context (AbsSyntax.TypeCast expr typeToCast) = do 
+  _ <- inferTypeExpression context expr
+  pure typeToCast
 inferTypeExpression _ expr = Left $ "Internal error : unsupported type inference for expr\n\t" ++ show expr
 
 -- Type check
@@ -762,6 +766,10 @@ checkTypeExpression context (AbsSyntax.TryCatch mainBranch catchPattern fallback
           checkTypeExpression (insertVar varName exceptionType context) fallbackExpr expectedType
           pure ()
         _ -> Left "Internal error : unsupported catch pattern"
+-- T-Cast
+checkTypeExpression context castExpr@(AbsSyntax.TypeCast expr typeToCast) expectedType = do 
+  _ <- inferTypeExpression context expr
+  compatible context typeToCast expectedType castExpr
 -- default rule
 checkTypeExpression context expr expectedType = do
   exprType <- inferTypeExpression context expr
