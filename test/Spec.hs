@@ -17,6 +17,7 @@ import qualified SimpleTypes.TupleSpec
 import qualified SimpleTypes.UnitSpec
 import qualified SimpleTypes.VariantSpec
 import qualified SubTyping.SubTyping
+import qualified SubTyping.TopBottom
 import Test.Hspec
 
 main :: IO ()
@@ -40,3 +41,4 @@ main = hspec $ do
   Exceptions.PanicSpec.spec
   Exceptions.ExceptionsSpec.spec
   SubTyping.SubTyping.spec
+  SubTyping.TopBottom.spec

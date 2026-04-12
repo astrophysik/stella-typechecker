@@ -90,6 +90,7 @@ test-suite typechecker-test
       SimpleTypes.UnitSpec
       SimpleTypes.VariantSpec
       SubTyping.SubTyping
+      SubTyping.TopBottom
       TestUtil
       Paths_typechecker
   autogen-modules:

@@ -53,4 +53,6 @@ infix 4 <:
         (M.toList sMap)
 (<:) (AbsSyntax.TypeList s) (AbsSyntax.TypeList t) = s <: t
 (<:) (AbsSyntax.TypeRef s) (AbsSyntax.TypeRef t) = s <: t && t <: s
+(<:) _ AbsSyntax.TypeTop = True
+(<:) AbsSyntax.TypeBottom _ = True
 (<:) _ _ = False
