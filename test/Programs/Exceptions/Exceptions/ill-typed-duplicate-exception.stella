@@ -1,0 +1,11 @@
+language core;
+
+extend with #exceptions, #exception-type-declaration, #sum-types;
+
+exception type = Nat
+
+exception type = Nat
+
+fn main(n : Nat) -> Nat + Bool {
+  return try { inl(n) } catch { e => inr(false) }
+}

@@ -29,7 +29,17 @@ module TypeCheck.Errors
     unexpectedVariant,
     unexpectedVariantLabel,
     dublicateVariantLabels,
+    notAReference,
+    unexpectedReferenceType,
+    ambiguousReferenceType,
+    unexpectedMemoryAddress,
+    ambiguousPanicType,
+    duplicateExceptionType,
+    exceptionTypeNotDeclared,
+    ambiguousThrowType,
+    unexpectedSubType,
     formatUnexpectedTypeForExpressionMsg,
+    formatUnexpectedSubTypeMsg,
   )
 where
 
@@ -125,6 +135,51 @@ ambiguousSumType = "ERROR_AMBIGUOUS_SUM_TYPE"
 unexpectedTupleLength :: String
 unexpectedTupleLength = "ERROR_UNEXPECTED_TUPLE_LENGTH"
 
+notAReference :: String
+notAReference = "ERROR_NOT_A_REFERENCE"
+
+unexpectedReferenceType :: String
+unexpectedReferenceType = "ERROR_UNEXPECTED_REFERENCE"
+
+ambiguousReferenceType :: String
+ambiguousReferenceType = "ERROR_AMBIGUOUS_REFERENCE_TYPE"
+
+unexpectedMemoryAddress :: String
+unexpectedMemoryAddress = "ERROR_UNEXPECTED_MEMORY_ADDRESS"
+
+ambiguousPanicType :: String
+ambiguousPanicType = "ERROR_AMBIGUOUS_PANIC_TYPE"
+
+duplicateExceptionType :: String
+duplicateExceptionType = "ERROR_DUPLICATE_EXCEPTION_TYPE"
+
+exceptionTypeNotDeclared :: String
+exceptionTypeNotDeclared = "ERROR_EXCEPTION_TYPE_NOT_DECLARED"
+
+ambiguousThrowType :: String
+ambiguousThrowType = "RROR_AMBIGUOUS_THROW_TYPE"
+
+unexpectedSubType :: String
+unexpectedSubType = "ERROR_UNEXPECTED_SUBTYPE"
+
+
+formatUnexpectedSubTypeMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
+formatUnexpectedSubTypeMsg realType expectedType expression =
+  unexpectedSubType
+    ++ "\nexpected a subtype of\n\t"
+    ++ show expectedType
+    ++ "\nbut got\n\t"
+    ++ show realType
+    ++ "\nwhen typechecking the expression\n\t"
+    ++ show expression
+
+
 formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
-formatUnexpectedTypeForExpressionMsg realType expectedType expression = unexpectedTypeForExpression ++
-  "\nexpected type\n\t" ++ show expectedType ++ "\nbut got\n\t" ++ show realType ++ "\nwhen typechecking the expression\n\t" ++ show expression
+formatUnexpectedTypeForExpressionMsg realType expectedType expression =
+  unexpectedTypeForExpression
+    ++ "\nexpected type\n\t"
+    ++ show expectedType
+    ++ "\nbut got\n\t"
+    ++ show realType
+    ++ "\nwhen typechecking the expression\n\t"
+    ++ show expression

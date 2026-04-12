@@ -1,0 +1,6 @@
+language core;
+extend with #references, #sequencing, #unit-type, #let-bindings;
+
+fn main(n : Nat) -> Unit {
+    return let x = new(0) in x := n; unit
+}

@@ -1,0 +1,9 @@
+language core;
+
+extend with #ambiguous-type-as-bottom,
+            #structural-subtyping,
+            #panic;
+
+fn main(n : Nat) -> Nat {
+  return (fn(n : Nat) {return panic!})(0)
+}

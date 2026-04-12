@@ -1,0 +1,7 @@
+language core;
+
+extend with #natural-literals, #type-cast, #pairs;
+
+fn main(n : Nat) -> Bool {
+	return (1 cast as {Nat, Nat}).1
+}

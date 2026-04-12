@@ -1,5 +1,6 @@
 module TypeCheck.TypeCheck
   ( typeCheck,
+
     -- * Errors
     unexpectedTypeForExpression,
     undefinedVariable,
@@ -31,67 +32,87 @@ module TypeCheck.TypeCheck
     unexpectedVariant,
     unexpectedVariantLabel,
     dublicateVariantLabels,
+    notAReference,
+    unexpectedReferenceType,
+    ambiguousReferenceType,
+    unexpectedMemoryAddress,
+    ambiguousPanicType,
+    duplicateExceptionType,
+    exceptionTypeNotDeclared,
+    ambiguousThrowType,
+    unexpectedSubType,
+
     -- * Context
     Context,
     emptyContext,
     lookupVar,
-    extendContext,
+    insertVar,
+
     -- * Type inference and checking
     inferTypeExpression,
     checkTypeExpression,
+
     -- * Declarations
     checkDeclarations,
     collectDeclarations,
   )
 where
 
-import TypeCheck.Common
+import qualified Parsing.AbsSyntax as AbsSyntax
+import TypeCheck.BidirectionalTyping (checkTypeExpression, inferTypeExpression)
+import TypeCheck.Context
   ( Context,
     emptyContext,
-    extendContext,
+    insertVar,
     lookupVar,
   )
-import TypeCheck.Decl (checkDeclarations, collectDeclarations)
+import TypeCheck.Decl (checkDeclarations, collectDeclarations, processExtensions)
 import TypeCheck.Errors
   ( ambiguousList,
+    ambiguousPanicType,
+    ambiguousReferenceType,
     ambiguousSumType,
+    ambiguousThrowType,
     ambiguousVariantType,
     dublicateFunctionDeclaration,
     dublicateRecordFields,
     dublicateRecordTypeFields,
+    dublicateVariantLabels,
+    duplicateExceptionType,
+    exceptionTypeNotDeclared,
     illegalEmptyMatching,
     missingMain,
     missingRecordFields,
+    nonExhaustiveMatchPatterns,
     notAFunction,
     notAList,
     notARecord,
+    notAReference,
     notATuple,
-    nonExhaustiveMatchPatterns,
     tupleIndexOutOfBounds,
+    undefinedVariable,
     unepxectedPatternForType,
     unexpectedFieldAccess,
     unexpectedInjection,
     unexpectedLambda,
     unexpectedList,
+    unexpectedMemoryAddress,
     unexpectedRecord,
     unexpectedRecordFields,
+    unexpectedReferenceType,
     unexpectedTuple,
     unexpectedTupleLength,
     unexpectedTypeForExpression,
     unexpectedTypeForParam,
-    undefinedVariable,
     unexpectedVariant,
+    unexpectedSubType,
     unexpectedVariantLabel,
-    dublicateVariantLabels,
   )
-import TypeCheck.BidirectionalTyping (inferTypeExpression, checkTypeExpression)
-import qualified Data.HashMap.Strict as HM
-import qualified Parsing.AbsSyntax as AbsSyntax
 
 -- | Main entry point for type checking a program.
 typeCheck :: AbsSyntax.Program -> Either String ()
-typeCheck (AbsSyntax.AProgram _ _ declarations) = do
+typeCheck (AbsSyntax.AProgram _ extensions declarations) = do
   programContext <- collectDeclarations declarations
-  case HM.lookup "main" programContext of
-    Just _ -> checkDeclarations programContext declarations
+  case lookupVar "main" programContext of
+    Just _ -> checkDeclarations (processExtensions programContext extensions) declarations
     Nothing -> Left missingMain

@@ -1,0 +1,6 @@
+language core;
+extend with #references;
+
+fn main(n : Nat) -> Bool {
+    return let x = new(true) in *x
+}

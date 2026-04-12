@@ -1,0 +1,11 @@
+language core;
+
+extend with #ambiguous-type-as-bottom,
+            #structural-subtyping,
+            #exceptions;
+
+exception type = Nat
+
+fn main(n : Nat) -> Bool {
+  return (fn(n : Nat) {return throw(0)})(0)
+}

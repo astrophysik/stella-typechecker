@@ -1,0 +1,9 @@
+language core;
+
+extend with #comparison-operators, #panic;
+
+fn main(n : Nat) -> Nat {
+  return (fn(m : Nat) {
+    return panic!
+  })(0);
+}

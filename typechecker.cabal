@@ -34,8 +34,10 @@ library
       Parsing.SkelSyntax
       TypeCheck.BidirectionalTyping
       TypeCheck.Common
+      TypeCheck.Context
       TypeCheck.Decl
       TypeCheck.Errors
+      TypeCheck.SubTyping
       TypeCheck.TypeCheck
   other-modules:
       Paths_typechecker
@@ -76,13 +78,21 @@ test-suite typechecker-test
       Decl.DeclSpec
       DerivedForms.FixPointSpec
       DerivedForms.LetSpec
+      DerivedForms.SequencingSpec
       DerivedForms.TypeAsc
+      DerivedForms.TypeCast
+      Exceptions.ExceptionsSpec
+      Exceptions.PanicSpec
+      References.ReferencesSpec
       SimpleTypes.ListSpec
       SimpleTypes.RecordSpec
       SimpleTypes.SumTypesSpec
       SimpleTypes.TupleSpec
       SimpleTypes.UnitSpec
       SimpleTypes.VariantSpec
+      SubTyping.AmbiguousTypeAsBottom
+      SubTyping.SubTyping
+      SubTyping.TopBottom
       TestUtil
       Paths_typechecker
   autogen-modules:

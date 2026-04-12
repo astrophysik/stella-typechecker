@@ -1,29 +1,13 @@
 module TypeCheck.Common
-  ( Context,
-    emptyContext,
-    lookupVar,
-    extendContext,
-    nthElement,
+  ( nthElement,
     hasDuplicateBy,
     validateType,
   )
 where
 
-import Control.Monad (forM_, when)
-import qualified Data.HashMap.Strict as HM
+import Control.Monad (when)
 import qualified Parsing.AbsSyntax as AbsSyntax
 import qualified TypeCheck.Errors (dublicateRecordTypeFields, dublicateVariantLabels)
-
-type Context = HM.HashMap String AbsSyntax.Type
-
-emptyContext :: Context
-emptyContext = HM.empty
-
-lookupVar :: String -> Context -> Maybe AbsSyntax.Type
-lookupVar = HM.lookup
-
-extendContext :: String -> AbsSyntax.Type -> Context -> Context
-extendContext = HM.insert
 
 nthElement :: Integer -> [a] -> Maybe a
 nthElement 1 (x : _) = Just x

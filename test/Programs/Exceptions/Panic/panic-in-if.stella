@@ -1,0 +1,6 @@
+language core;
+extend with #panic, #sum-types, #type-ascriptions;
+
+fn main(n : Nat) -> Nat {
+    return if true then panic! else n
+}

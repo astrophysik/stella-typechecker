@@ -1,0 +1,13 @@
+language core;
+
+extend with
+  #records, #tuples, #sum-types, #variants, #unit-type, #lists,#fixpoint-combinator,
+  #structural-subtyping;
+
+fn fail(n : Nat) -> <| failure : Nat, value : Nat |> {
+	return <| failure = 0 |>
+}
+
+fn main(n : Nat) -> <| value : Nat, failure : Bool |> {
+  return fail(n)
+}

@@ -1,0 +1,10 @@
+language core;
+
+
+extend with
+  #records, #tuples,
+  #structural-subtyping;
+
+fn main(n : Nat) -> &<| a : Nat, b : Bool |> {
+  return new(<| b = 1 |>)
+}
