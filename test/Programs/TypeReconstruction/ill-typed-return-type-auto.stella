@@ -1,0 +1,7 @@
+language core;
+
+extend with #type-reconstruction;
+
+fn main(n : Nat) -> auto {
+  return if Nat::iszero(n) then 0 else true
+}

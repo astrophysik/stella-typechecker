@@ -1,4 +1,4 @@
-module TypeCheck.BidirectionalTyping
+module TypeCheck.Bidirectional.Typing
   ( inferTypeExpression,
     checkTypeExpression,
   )
@@ -11,9 +11,9 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Parsing.AbsSyntax as AbsSyntax
 import TypeCheck.Common (hasDuplicateBy, nthElement, validateType)
-import TypeCheck.Context (Context, insertVar, lookupVar, lookupException, lookupSubTyping, lookupAmbiguousTypeAsBottom)
+import TypeCheck.Bidirectional.Context (Context, insertVar, lookupVar, lookupException, lookupSubTyping, lookupAmbiguousTypeAsBottom)
 import TypeCheck.Errors
-import TypeCheck.SubTyping ((<:))
+import TypeCheck.Bidirectional.SubTyping ((<:))
 
 inferVariantCase :: Context -> M.Map AbsSyntax.StellaIdent AbsSyntax.OptionalTyping -> AbsSyntax.MatchCase -> Either String AbsSyntax.Type
 inferVariantCase context fieldMap matchCase@(AbsSyntax.AMatchCase matchPattern expr) =

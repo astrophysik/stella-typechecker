@@ -40,6 +40,8 @@ module TypeCheck.Errors
     unexpectedSubType,
     formatUnexpectedTypeForExpressionMsg,
     formatUnexpectedSubTypeMsg,
+    ambiguousType,
+    accursCheckInfiniteType,
   )
 where
 
@@ -162,6 +164,11 @@ ambiguousThrowType = "RROR_AMBIGUOUS_THROW_TYPE"
 unexpectedSubType :: String
 unexpectedSubType = "ERROR_UNEXPECTED_SUBTYPE"
 
+ambiguousType :: String
+ambiguousType = "ERROR_AMBIGUOUS_TYPE"
+
+accursCheckInfiniteType :: String
+accursCheckInfiniteType = "ERROR_OCCURS_CHECK_INFINITE_TYPE"
 
 formatUnexpectedSubTypeMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedSubTypeMsg realType expectedType expression =
@@ -172,7 +179,6 @@ formatUnexpectedSubTypeMsg realType expectedType expression =
     ++ show realType
     ++ "\nwhen typechecking the expression\n\t"
     ++ show expression
-
 
 formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedTypeForExpressionMsg realType expectedType expression =

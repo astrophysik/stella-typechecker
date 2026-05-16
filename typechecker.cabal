@@ -32,12 +32,17 @@ library
       Parsing.ParSyntax
       Parsing.PrintSyntax
       Parsing.SkelSyntax
-      TypeCheck.BidirectionalTyping
+      TypeCheck.Bidirectional.Context
+      TypeCheck.Bidirectional.Decl
+      TypeCheck.Bidirectional.SubTyping
+      TypeCheck.Bidirectional.Typing
       TypeCheck.Common
-      TypeCheck.Context
-      TypeCheck.Decl
+      TypeCheck.ConstraintBased.ConstraintSet
+      TypeCheck.ConstraintBased.Context
+      TypeCheck.ConstraintBased.Decl
+      TypeCheck.ConstraintBased.Typing
+      TypeCheck.ConstraintBased.Unification
       TypeCheck.Errors
-      TypeCheck.SubTyping
       TypeCheck.TypeCheck
   other-modules:
       Paths_typechecker
@@ -50,6 +55,7 @@ library
       array
     , base >=4.7 && <5
     , containers
+    , mtl
     , unordered-containers
   default-language: Haskell2010
 
@@ -94,6 +100,7 @@ test-suite typechecker-test
       SubTyping.SubTyping
       SubTyping.TopBottom
       TestUtil
+      TypeReconstruction.TypeReconstruction
       Paths_typechecker
   autogen-modules:
       Paths_typechecker

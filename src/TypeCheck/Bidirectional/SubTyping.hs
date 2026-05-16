@@ -1,4 +1,4 @@
-module TypeCheck.SubTyping
+module TypeCheck.Bidirectional.SubTyping
   ( (<:)
   ) where
 

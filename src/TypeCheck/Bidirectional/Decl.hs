@@ -1,16 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
 
-module TypeCheck.Decl
-  ( checkDeclarations,
-    collectDeclarations,
-    processExtensions,
+module TypeCheck.Bidirectional.Decl
+  ( typeCheck,
   )
 where
 
 import qualified Parsing.AbsSyntax as AbsSyntax
-import TypeCheck.BidirectionalTyping (checkTypeExpression)
-import TypeCheck.Common (validateType)
-import TypeCheck.Context
+import TypeCheck.Bidirectional.Context
   ( Context,
     emptyContext,
     enableAmbiguousTypeAsBottom,
@@ -20,7 +16,9 @@ import TypeCheck.Context
     lookupException,
     lookupVar,
   )
-import TypeCheck.Errors (dublicateFunctionDeclaration, duplicateExceptionType)
+import TypeCheck.Bidirectional.Typing (checkTypeExpression)
+import TypeCheck.Common (validateType)
+import TypeCheck.Errors (dublicateFunctionDeclaration, duplicateExceptionType, missingMain)
 
 checkDeclarations :: Context -> [AbsSyntax.Decl] -> Either String ()
 checkDeclarations _ [] = Right ()
@@ -53,17 +51,25 @@ collectDeclarations _ = Left "Internal error : unsupported declaration"
 
 processExtensions :: Context -> [AbsSyntax.Extension] -> Context
 processExtensions context extensions =
-  let hasExtension name = any
-        ( \case
-            AbsSyntax.AnExtension nestedExtensions ->
-              any
-                ( \case
-                    (AbsSyntax.ExtensionName ext) -> ext == name
-                    _ -> False
-                )
-                nestedExtensions
-        )
-        extensions
+  let hasExtension name =
+        any
+          ( \case
+              AbsSyntax.AnExtension nestedExtensions ->
+                any
+                  ( \case
+                      (AbsSyntax.ExtensionName ext) -> ext == name
+                      _ -> False
+                  )
+                  nestedExtensions
+          )
+          extensions
    in (if hasExtension "#structural-subtyping" then enableSubTyping else id)
         . (if hasExtension "#ambiguous-type-as-bottom" then enableAmbiguousTypeAsBottom else id)
         $ context
+
+typeCheck :: AbsSyntax.Program -> Either String ()
+typeCheck (AbsSyntax.AProgram _ extensions declarations) = do
+  programContext <- collectDeclarations declarations
+  case lookupVar "main" programContext of
+    Just _ -> checkDeclarations (processExtensions programContext extensions) declarations
+    Nothing -> Left missingMain

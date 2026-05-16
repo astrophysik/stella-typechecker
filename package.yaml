@@ -39,6 +39,7 @@ library:
     - array
     - unordered-containers
     - containers
+    - mtl
 
 executables:
   typechecker-exe:

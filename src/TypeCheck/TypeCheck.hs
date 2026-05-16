@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module TypeCheck.TypeCheck
   ( typeCheck,
 
@@ -41,32 +43,13 @@ module TypeCheck.TypeCheck
     exceptionTypeNotDeclared,
     ambiguousThrowType,
     unexpectedSubType,
-
-    -- * Context
-    Context,
-    emptyContext,
-    lookupVar,
-    insertVar,
-
-    -- * Type inference and checking
-    inferTypeExpression,
-    checkTypeExpression,
-
-    -- * Declarations
-    checkDeclarations,
-    collectDeclarations,
+    ambiguousType,
   )
 where
 
 import qualified Parsing.AbsSyntax as AbsSyntax
-import TypeCheck.BidirectionalTyping (checkTypeExpression, inferTypeExpression)
-import TypeCheck.Context
-  ( Context,
-    emptyContext,
-    insertVar,
-    lookupVar,
-  )
-import TypeCheck.Decl (checkDeclarations, collectDeclarations, processExtensions)
+import qualified TypeCheck.Bidirectional.Decl (typeCheck)
+import qualified TypeCheck.ConstraintBased.Decl (typeCheck)
 import TypeCheck.Errors
   ( ambiguousList,
     ambiguousPanicType,
@@ -100,19 +83,30 @@ import TypeCheck.Errors
     unexpectedRecord,
     unexpectedRecordFields,
     unexpectedReferenceType,
+    unexpectedSubType,
     unexpectedTuple,
     unexpectedTupleLength,
     unexpectedTypeForExpression,
     unexpectedTypeForParam,
     unexpectedVariant,
-    unexpectedSubType,
     unexpectedVariantLabel,
+    ambiguousType,
   )
 
--- | Main entry point for type checking a program.
 typeCheck :: AbsSyntax.Program -> Either String ()
-typeCheck (AbsSyntax.AProgram _ extensions declarations) = do
-  programContext <- collectDeclarations declarations
-  case lookupVar "main" programContext of
-    Just _ -> checkDeclarations (processExtensions programContext extensions) declarations
-    Nothing -> Left missingMain
+typeCheck program@(AbsSyntax.AProgram _ extensions _) =
+  let hasExtension name =
+        any
+          ( \case
+              AbsSyntax.AnExtension nestedExtensions ->
+                any
+                  ( \case
+                      (AbsSyntax.ExtensionName ext) -> ext == name
+                      _ -> False
+                  )
+                  nestedExtensions
+          )
+          extensions
+   in if hasExtension "#type-reconstruction"
+        then TypeCheck.ConstraintBased.Decl.typeCheck program
+        else TypeCheck.Bidirectional.Decl.typeCheck program

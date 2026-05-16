@@ -1,4 +1,4 @@
-module TypeCheck.Context
+module TypeCheck.Bidirectional.Context
   ( Context,
     emptyContext,
     lookupVar,
