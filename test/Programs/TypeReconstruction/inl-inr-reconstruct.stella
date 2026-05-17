@@ -1,0 +1,7 @@
+language core;
+
+extend with #type-reconstruction, #sum-types, #unit-type;
+
+fn main(first : nat) -> auto {
+  return if true then inl(0) else inr(unit)
+}

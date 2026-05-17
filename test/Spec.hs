@@ -19,6 +19,8 @@ import qualified SimpleTypes.VariantSpec
 import qualified SubTyping.AmbiguousTypeAsBottom
 import qualified SubTyping.SubTyping
 import qualified SubTyping.TopBottom
+import qualified TypeReconstruction.TypeReconstruction
+import qualified UniversalTypes.UniversalTypes
 import Test.Hspec
 
 main :: IO ()
@@ -44,3 +46,5 @@ main = hspec $ do
   SubTyping.SubTyping.spec
   SubTyping.TopBottom.spec
   SubTyping.AmbiguousTypeAsBottom.spec
+  TypeReconstruction.TypeReconstruction.spec
+  UniversalTypes.UniversalTypes.spec

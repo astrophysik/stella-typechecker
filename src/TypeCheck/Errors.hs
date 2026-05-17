@@ -40,6 +40,13 @@ module TypeCheck.Errors
     unexpectedSubType,
     formatUnexpectedTypeForExpressionMsg,
     formatUnexpectedSubTypeMsg,
+    ambiguousType,
+    accursCheckInfiniteType,
+    notAGenericFunction, 
+    incorrectNumberOfTypeArguments,
+    undefinedTypeVariable,
+    notAGenericFunction,
+    duplicateTypeParameter
   )
 where
 
@@ -162,6 +169,23 @@ ambiguousThrowType = "RROR_AMBIGUOUS_THROW_TYPE"
 unexpectedSubType :: String
 unexpectedSubType = "ERROR_UNEXPECTED_SUBTYPE"
 
+ambiguousType :: String
+ambiguousType = "ERROR_AMBIGUOUS_TYPE"
+
+accursCheckInfiniteType :: String
+accursCheckInfiniteType = "ERROR_OCCURS_CHECK_INFINITE_TYPE"
+
+notAGenericFunction :: String
+notAGenericFunction = "ERROR_NOT_A_GENERIC_FUNCTION"
+
+incorrectNumberOfTypeArguments :: String 
+incorrectNumberOfTypeArguments = "ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS"
+
+undefinedTypeVariable :: String 
+undefinedTypeVariable = "ERROR_UNDEFINED_TYPE_VARIABLE"
+
+duplicateTypeParameter :: String 
+duplicateTypeParameter = "ERROR_DUPLICATE_TYPE_PARAMETER"
 
 formatUnexpectedSubTypeMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedSubTypeMsg realType expectedType expression =
@@ -172,7 +196,6 @@ formatUnexpectedSubTypeMsg realType expectedType expression =
     ++ show realType
     ++ "\nwhen typechecking the expression\n\t"
     ++ show expression
-
 
 formatUnexpectedTypeForExpressionMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedTypeForExpressionMsg realType expectedType expression =
