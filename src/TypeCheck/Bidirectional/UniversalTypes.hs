@@ -1,11 +1,17 @@
-module TypeCheck.Bidirectional.UniversalTypes (substituteType, Substitution, validateTypeVars) where
+module TypeCheck.Bidirectional.UniversalTypes (substituteType, Substitution, validateTypeVars, validateTypeList) where
 
 import qualified Data.Map.Strict as Map
 import qualified Parsing.AbsSyntax as AbsSyntax
 import TypeCheck.Bidirectional.Context
 import TypeCheck.Errors
+import TypeCheck.Common
 
 type Substitution = Map.Map String AbsSyntax.Type
+
+validateTypeList :: [AbsSyntax.StellaIdent] -> Either String ()
+validateTypeList typeList = if hasDuplicateBy (==) typeList 
+    then Left duplicateTypeParameter
+    else Right ()
 
 substituteType :: Substitution -> AbsSyntax.Type -> AbsSyntax.Type
 substituteType sub t@(AbsSyntax.TypeVar (AbsSyntax.StellaIdent name)) =
@@ -61,6 +67,7 @@ validateTypeVars ctx = checkType
           AbsSyntax.SomeTyping t -> checkType t
           AbsSyntax.NoTyping -> Right ()
     checkType (AbsSyntax.TypeForAll typeVars bodyType) = do
+      validateTypeList typeVars  
       let boundNames = [name | AbsSyntax.StellaIdent name <- typeVars]
           ctx' = foldr insertTypeVar ctx boundNames
       validateTypeVars ctx' bodyType

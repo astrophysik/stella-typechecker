@@ -48,6 +48,7 @@ module TypeCheck.TypeCheck
     incorrectNumberOfTypeArguments,
     undefinedTypeVariable,
     notAGenericFunction,
+    duplicateTypeParameter,
   )
 where
 
@@ -99,6 +100,7 @@ import TypeCheck.Errors
     incorrectNumberOfTypeArguments,
     undefinedTypeVariable,
     notAGenericFunction,
+    duplicateTypeParameter,
   )
 
 typeCheck :: AbsSyntax.Program -> Either String ()

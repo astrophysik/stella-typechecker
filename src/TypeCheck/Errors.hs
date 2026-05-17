@@ -45,7 +45,8 @@ module TypeCheck.Errors
     notAGenericFunction, 
     incorrectNumberOfTypeArguments,
     undefinedTypeVariable,
-    notAGenericFunction
+    notAGenericFunction,
+    duplicateTypeParameter
   )
 where
 
@@ -182,6 +183,9 @@ incorrectNumberOfTypeArguments = "ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS"
 
 undefinedTypeVariable :: String 
 undefinedTypeVariable = "ERROR_UNDEFINED_TYPE_VARIABLE"
+
+duplicateTypeParameter :: String 
+duplicateTypeParameter = "ERROR_DUPLICATE_TYPE_PARAMETER"
 
 formatUnexpectedSubTypeMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedSubTypeMsg realType expectedType expression =

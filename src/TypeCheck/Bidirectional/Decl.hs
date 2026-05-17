@@ -8,7 +8,7 @@ where
 import qualified Parsing.AbsSyntax as AbsSyntax
 import TypeCheck.Bidirectional.Context
 import TypeCheck.Bidirectional.Typing (checkTypeExpression)
-import TypeCheck.Bidirectional.UniversalTypes (validateTypeVars)
+import TypeCheck.Bidirectional.UniversalTypes (validateTypeVars, validateTypeList)
 import TypeCheck.Common (validateType)
 import TypeCheck.Errors (dublicateFunctionDeclaration, duplicateExceptionType, missingMain)
 
@@ -50,6 +50,7 @@ collectDeclarations ((AbsSyntax.DeclFunGeneric _ (AbsSyntax.StellaIdent name) ty
   validateType paramType
   validateType returnType
   tailContext <- collectDeclarations xs
+  validateTypeList typeParams
   let contextWithTypes = foldr (\(AbsSyntax.StellaIdent typeVar) context -> insertTypeVar typeVar context) tailContext typeParams
   validateTypeVars contextWithTypes paramType
   validateTypeVars contextWithTypes returnType

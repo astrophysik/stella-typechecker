@@ -3,7 +3,7 @@ where
 
 import Test.Hspec
 import TestUtil
-import TypeCheck.TypeCheck (incorrectNumberOfTypeArguments, undefinedTypeVariable, notAGenericFunction, unexpectedTypeForExpression)
+import TypeCheck.TypeCheck (incorrectNumberOfTypeArguments, duplicateTypeParameter, undefinedTypeVariable, notAGenericFunction, unexpectedTypeForExpression)
 
 spec :: Spec
 spec = describe "universal types test" $ do
@@ -29,5 +29,9 @@ spec = describe "universal types test" $ do
     shouldFailFileWith "test/Programs/UniversalTypes/ill-typed-wrong-type.stella" unexpectedTypeForExpression
   it "ill typed missed forall" $ do
     shouldFailFileWith "test/Programs/UniversalTypes/ill-typed-missed-forall.stella" unexpectedTypeForExpression
+  it "ill typed duplicate type param" $ do
+    shouldFailFileWith "test/Programs/UniversalTypes/ill-typed-duplicate-type-param.stella" duplicateTypeParameter
+
+
 
 
