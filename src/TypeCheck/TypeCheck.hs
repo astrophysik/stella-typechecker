@@ -44,6 +44,10 @@ module TypeCheck.TypeCheck
     ambiguousThrowType,
     unexpectedSubType,
     ambiguousType,
+    accursCheckInfiniteType,
+    incorrectNumberOfTypeArguments,
+    undefinedTypeVariable,
+    notAGenericFunction,
   )
 where
 
@@ -91,6 +95,10 @@ import TypeCheck.Errors
     unexpectedVariant,
     unexpectedVariantLabel,
     ambiguousType,
+    accursCheckInfiniteType,
+    incorrectNumberOfTypeArguments,
+    undefinedTypeVariable,
+    notAGenericFunction,
   )
 
 typeCheck :: AbsSyntax.Program -> Either String ()

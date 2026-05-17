@@ -7,16 +7,8 @@ where
 
 import qualified Parsing.AbsSyntax as AbsSyntax
 import TypeCheck.Bidirectional.Context
-  ( Context,
-    emptyContext,
-    enableAmbiguousTypeAsBottom,
-    enableSubTyping,
-    insertException,
-    insertVar,
-    lookupException,
-    lookupVar,
-  )
 import TypeCheck.Bidirectional.Typing (checkTypeExpression)
+import TypeCheck.Bidirectional.UniversalTypes (validateTypeVars)
 import TypeCheck.Common (validateType)
 import TypeCheck.Errors (dublicateFunctionDeclaration, duplicateExceptionType, missingMain)
 
@@ -29,6 +21,13 @@ checkDeclarations programContext ((AbsSyntax.DeclFun _ _ [AbsSyntax.AParamDecl (
   checkTypeExpression functionContext expr returnType
   checkDeclarations programContext xs
 checkDeclarations programContext ((AbsSyntax.DeclExceptionType _) : xs) = checkDeclarations programContext xs
+checkDeclarations programContext ((AbsSyntax.DeclFunGeneric _ _ typeParams [AbsSyntax.AParamDecl (AbsSyntax.StellaIdent paramName) paramType] (AbsSyntax.SomeReturnType returnType) _ _ expr) : xs) = do
+  validateType returnType
+  validateType paramType
+  let contextWithTypes = foldr (\(AbsSyntax.StellaIdent typeVar) context -> insertTypeVar typeVar context) programContext typeParams
+  let functionContext = insertVar paramName paramType contextWithTypes
+  checkTypeExpression functionContext expr returnType
+  checkDeclarations programContext xs
 checkDeclarations _ _ = Left "Internal error : unsupported declaration"
 
 collectDeclarations :: [AbsSyntax.Decl] -> Either String Context
@@ -47,6 +46,16 @@ collectDeclarations ((AbsSyntax.DeclExceptionType exceptionType) : xs) = do
     _ -> case exceptionType of
       AbsSyntax.TypeVar typeName -> Left $ "Illegal type\n" ++ show typeName
       _ -> pure $ insertException exceptionType tailContext
+collectDeclarations ((AbsSyntax.DeclFunGeneric _ (AbsSyntax.StellaIdent name) typeParams [AbsSyntax.AParamDecl _ paramType] (AbsSyntax.SomeReturnType returnType) _ _ _) : xs) = do
+  validateType paramType
+  validateType returnType
+  tailContext <- collectDeclarations xs
+  let contextWithTypes = foldr (\(AbsSyntax.StellaIdent typeVar) context -> insertTypeVar typeVar context) tailContext typeParams
+  validateTypeVars contextWithTypes paramType
+  validateTypeVars contextWithTypes returnType
+  case lookupVar name tailContext of
+    Just _ -> Left dublicateFunctionDeclaration
+    _ -> pure $ insertVar name (AbsSyntax.TypeForAll typeParams (AbsSyntax.TypeFun [paramType] returnType)) tailContext
 collectDeclarations _ = Left "Internal error : unsupported declaration"
 
 processExtensions :: Context -> [AbsSyntax.Extension] -> Context
@@ -65,6 +74,7 @@ processExtensions context extensions =
           extensions
    in (if hasExtension "#structural-subtyping" then enableSubTyping else id)
         . (if hasExtension "#ambiguous-type-as-bottom" then enableAmbiguousTypeAsBottom else id)
+        . (if hasExtension "#universal-types" then enableUniversalTypes else id)
         $ context
 
 typeCheck :: AbsSyntax.Program -> Either String ()

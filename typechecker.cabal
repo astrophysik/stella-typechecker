@@ -36,6 +36,7 @@ library
       TypeCheck.Bidirectional.Decl
       TypeCheck.Bidirectional.SubTyping
       TypeCheck.Bidirectional.Typing
+      TypeCheck.Bidirectional.UniversalTypes
       TypeCheck.Common
       TypeCheck.ConstraintBased.ConstraintSet
       TypeCheck.ConstraintBased.Context
@@ -101,6 +102,7 @@ test-suite typechecker-test
       SubTyping.TopBottom
       TestUtil
       TypeReconstruction.TypeReconstruction
+      UniversalTypes.UniversalTypes
       Paths_typechecker
   autogen-modules:
       Paths_typechecker

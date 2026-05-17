@@ -42,6 +42,10 @@ module TypeCheck.Errors
     formatUnexpectedSubTypeMsg,
     ambiguousType,
     accursCheckInfiniteType,
+    notAGenericFunction, 
+    incorrectNumberOfTypeArguments,
+    undefinedTypeVariable,
+    notAGenericFunction
   )
 where
 
@@ -169,6 +173,15 @@ ambiguousType = "ERROR_AMBIGUOUS_TYPE"
 
 accursCheckInfiniteType :: String
 accursCheckInfiniteType = "ERROR_OCCURS_CHECK_INFINITE_TYPE"
+
+notAGenericFunction :: String
+notAGenericFunction = "ERROR_NOT_A_GENERIC_FUNCTION"
+
+incorrectNumberOfTypeArguments :: String 
+incorrectNumberOfTypeArguments = "ERROR_INCORRECT_NUMBER_OF_TYPE_ARGUMENTS"
+
+undefinedTypeVariable :: String 
+undefinedTypeVariable = "ERROR_UNDEFINED_TYPE_VARIABLE"
 
 formatUnexpectedSubTypeMsg :: AbsSyntax.Type -> AbsSyntax.Type -> AbsSyntax.Expr -> String
 formatUnexpectedSubTypeMsg realType expectedType expression =

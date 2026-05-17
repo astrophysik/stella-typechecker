@@ -4,16 +4,17 @@ module TypeCheck.Bidirectional.Typing
   )
 where
 
-import Control.Monad (forM_, when, unless)
+import Control.Monad (forM_, unless, when)
 import qualified Control.Monad (zipWithM_)
 import qualified Data.List
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Parsing.AbsSyntax as AbsSyntax
-import TypeCheck.Common (hasDuplicateBy, nthElement, validateType)
-import TypeCheck.Bidirectional.Context (Context, insertVar, lookupVar, lookupException, lookupSubTyping, lookupAmbiguousTypeAsBottom)
-import TypeCheck.Errors
+import TypeCheck.Bidirectional.Context
 import TypeCheck.Bidirectional.SubTyping ((<:))
+import TypeCheck.Bidirectional.UniversalTypes (Substitution, substituteType, validateTypeVars)
+import TypeCheck.Common (hasDuplicateBy, nthElement, validateType)
+import TypeCheck.Errors
 
 inferVariantCase :: Context -> M.Map AbsSyntax.StellaIdent AbsSyntax.OptionalTyping -> AbsSyntax.MatchCase -> Either String AbsSyntax.Type
 inferVariantCase context fieldMap matchCase@(AbsSyntax.AMatchCase matchPattern expr) =
@@ -126,6 +127,8 @@ inferTypeExpression context (AbsSyntax.Var (AbsSyntax.StellaIdent var)) = case l
   Nothing -> Left $ undefinedVariable ++ "\nundefined variable " ++ show var
 -- T-Abs
 inferTypeExpression context (AbsSyntax.Abstraction [AbsSyntax.AParamDecl (AbsSyntax.StellaIdent var) varType] body) = do
+  when (lookupUniversalTypes context) $
+    validateTypeVars context varType
   bodyType <- inferTypeExpression (insertVar var varType context) body
   validateType bodyType
   pure $ AbsSyntax.TypeFun [varType] bodyType
@@ -202,26 +205,31 @@ inferTypeExpression context (AbsSyntax.Let bindings expr) = do
     _ -> Left "Internal error : let with several arguments is unsupported"
 -- Type Ascriptions
 inferTypeExpression context (AbsSyntax.TypeAsc expr exprType) = do
+  when (lookupUniversalTypes context) $
+    validateTypeVars context exprType
   checkTypeExpression context expr exprType
   pure exprType
 -- Type Sum
 -- T-inl
-inferTypeExpression context expr@(AbsSyntax.Inl inlExpr) = do 
+inferTypeExpression context expr@(AbsSyntax.Inl inlExpr) = do
   unless (lookupAmbiguousTypeAsBottom context) $
-    Left $ ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
+    Left $
+      ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
   inlType <- inferTypeExpression context inlExpr
   pure $ AbsSyntax.TypeSum inlType AbsSyntax.TypeBottom
 -- T-inr
 inferTypeExpression context expr@(AbsSyntax.Inr inrExpr) = do
   unless (lookupAmbiguousTypeAsBottom context) $
-    Left $ ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
+    Left $
+      ambiguousSumType ++ "\ntype inference for sum types is not supported\n\t" ++ show expr
   inrType <- inferTypeExpression context inrExpr
-  pure $ AbsSyntax.TypeSum AbsSyntax.TypeBottom inrType 
+  pure $ AbsSyntax.TypeSum AbsSyntax.TypeBottom inrType
 -- T-Variant
 inferTypeExpression context (AbsSyntax.Variant ident variantData) = do
   unless (lookupSubTyping context) $
-    Left $ ambiguousVariantType ++ "\ntype inference for variants is not supported"
-  case variantData of 
+    Left $
+      ambiguousVariantType ++ "\ntype inference for variants is not supported"
+  case variantData of
     AbsSyntax.NoExprData -> pure $ AbsSyntax.TypeVariant [AbsSyntax.AVariantFieldType ident AbsSyntax.NoTyping]
     (AbsSyntax.SomeExprData exprData) -> do
       exprType <- inferTypeExpression context exprData
@@ -275,7 +283,8 @@ inferTypeExpression context (AbsSyntax.List (h : t)) = do
 -- T-Nil
 inferTypeExpression context (AbsSyntax.List []) = do
   unless (lookupAmbiguousTypeAsBottom context) $
-    Left $ ambiguousList ++ "\ntype inference of empty lists is not supported"
+    Left $
+      ambiguousList ++ "\ntype inference of empty lists is not supported"
   pure AbsSyntax.TypeBottom
 -- T-Cons
 inferTypeExpression context (AbsSyntax.ConsList listHead listTail) = do
@@ -359,9 +368,10 @@ inferTypeExpression context (AbsSyntax.Assign lhs rhs) = do
 -- T-loc
 inferTypeExpression _ (AbsSyntax.ConstMemory _) = Left $ ambiguousReferenceType ++ "\ncannot infer a type of a bare memory address"
 -- T-Error
-inferTypeExpression context AbsSyntax.Panic = do 
+inferTypeExpression context AbsSyntax.Panic = do
   unless (lookupAmbiguousTypeAsBottom context) $
-    Left $ ambiguousPanicType ++ "\ntype inference of empty lists is not supported"
+    Left $
+      ambiguousPanicType ++ "\ntype inference of empty lists is not supported"
   pure AbsSyntax.TypeBottom
 -- T-Raise
 inferTypeExpression context (AbsSyntax.Throw expr) = do
@@ -370,7 +380,8 @@ inferTypeExpression context (AbsSyntax.Throw expr) = do
     Just exceptionType -> do
       checkTypeExpression context expr exceptionType
       unless (lookupAmbiguousTypeAsBottom context) $
-        Left $ ambiguousThrowType ++ "\ncannot infer type for throw"
+        Left $
+          ambiguousThrowType ++ "\ncannot infer type for throw"
       pure AbsSyntax.TypeBottom
 -- T-TryWith
 inferTypeExpression context (AbsSyntax.TryWith mainBranch fallbackBranch) = do
@@ -391,9 +402,40 @@ inferTypeExpression context (AbsSyntax.TryCatch mainBranch catchPattern fallback
           pure mainBranchType
         _ -> Left "Internal error : unsupported catch pattern"
 -- T-Cast
-inferTypeExpression context (AbsSyntax.TypeCast expr typeToCast) = do 
+inferTypeExpression context (AbsSyntax.TypeCast expr typeToCast) = do
   _ <- inferTypeExpression context expr
   pure typeToCast
+-- Universal Types
+inferTypeExpression context applicationExpr@(AbsSyntax.TypeApplication expr typesForSubstitute) = do
+  unless (lookupUniversalTypes context) $
+    Left $
+      "\ntype application is supported only with #universal-types\n\t" ++ show expr
+  exprType <- inferTypeExpression context expr
+  case exprType of
+    AbsSyntax.TypeForAll typesArgs innerExpr ->
+      if length typesArgs /= length typesForSubstitute
+        then
+          Left $
+            incorrectNumberOfTypeArguments
+              ++ "\nexpected "
+              ++ show (length typesArgs)
+              ++ " type arguments for the expression\n\t"
+              ++ show expr
+              ++ "\nbut got "
+              ++ show (length typesForSubstitute)
+              ++ " type arguments in the application\n\t"
+              ++ show applicationExpr
+        else
+          let substitution = foldr (\(AbsSyntax.StellaIdent name, value) substitution -> M.insert name value substitution) M.empty (zip typesArgs typesForSubstitute)
+           in Right $ substituteType substitution innerExpr
+    _ -> Left $ notAGenericFunction ++ "\nexpected a universal type but got\n\t" ++ show exprType ++ "\nin the type application\n\t" ++ show applicationExpr
+inferTypeExpression context (AbsSyntax.TypeAbstraction typeParams expr) = do 
+  unless (lookupUniversalTypes context) $
+    Left $
+      "\ntype application is supported only with #universal-types\n\t" ++ show expr
+  let newContext = foldr (\(AbsSyntax.StellaIdent name) context -> insertTypeVar name context) context typeParams
+  exprType <- inferTypeExpression newContext expr
+  Right (AbsSyntax.TypeForAll typeParams exprType)
 inferTypeExpression _ expr = Left $ "Internal error : unsupported type inference for expr\n\t" ++ show expr
 
 -- Type check
@@ -440,6 +482,8 @@ checkTypeExpression context var@(AbsSyntax.Var _) expectedType = do
   compatible context varType expectedType var
 -- T-Abs
 checkTypeExpression context expr@(AbsSyntax.Abstraction [AbsSyntax.AParamDecl varIdent@(AbsSyntax.StellaIdent varName) varType] body) (AbsSyntax.TypeFun [paramType] resultType) = do
+  when (lookupUniversalTypes context) $
+    validateTypeVars context varType
   case compatible context paramType varType expr of -- case to print unexpectedTypeForParam instead of unexpectedTypeForExpr
     Left msg ->
       if lookupSubTyping context
@@ -587,6 +631,8 @@ checkTypeExpression content (AbsSyntax.Let bindings expr) expectedType = do
     _ -> Left "Typechecker internal error : let with several arguments is unsupported"
 -- Type Ascriptions
 checkTypeExpression context typeAscExpr@(AbsSyntax.TypeAsc expr exprType) expectedType = do
+  when (lookupUniversalTypes context) $
+    validateTypeVars context exprType
   checkTypeExpression context expr exprType
   compatible context exprType expectedType typeAscExpr
 -- Type Sum
@@ -789,7 +835,7 @@ checkTypeExpression context (AbsSyntax.TryCatch mainBranch catchPattern fallback
           pure ()
         _ -> Left "Internal error : unsupported catch pattern"
 -- T-Cast
-checkTypeExpression context castExpr@(AbsSyntax.TypeCast expr typeToCast) expectedType = do 
+checkTypeExpression context castExpr@(AbsSyntax.TypeCast expr typeToCast) expectedType = do
   _ <- inferTypeExpression context expr
   compatible context typeToCast expectedType castExpr
 -- default rule
