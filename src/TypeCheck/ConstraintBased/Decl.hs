@@ -16,6 +16,7 @@ import TypeCheck.ConstraintBased.Context
   )
 import TypeCheck.ConstraintBased.Typing (Infer, inferTypeExpression, freshTypeVar, withVar)
 import TypeCheck.Errors (dublicateFunctionDeclaration, missingMain)
+import TypeCheck.ConstraintBased.ConstraintSet(checkTypeAmbiguous)
 
 runInfer :: Context -> Infer a -> Either String a
 runInfer ctx action = evalStateT action ctx
@@ -65,7 +66,8 @@ typeCheck (AbsSyntax.AProgram _ extensions declarations) = do
   (programContext, programDeclarations) <- runInfer emptyContext (collectDeclarations declarations)
   case lookupVar "main" programContext of
     Just _ -> do
-      constraints <- evalStateT (checkDeclarations programContext programDeclarations) programContext
+      (constraints, finalContext) <- runStateT (checkDeclarations programContext programDeclarations) programContext
       -- Left $ show constraints
       unify constraints
+      checkTypeAmbiguous finalContext constraints
     Nothing -> Left missingMain
